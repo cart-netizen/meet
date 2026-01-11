@@ -3,8 +3,8 @@
  * Manages user authentication state with persistence
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session, User } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
@@ -19,6 +19,44 @@ import {
   signUp as authSignUp,
 } from '@/services/supabase/auth.service';
 import { isDemoMode } from '@/services/supabase/client';
+
+// ============================================================================
+// Platform-specific Storage for Zustand
+// ============================================================================
+
+// Web-compatible storage using localStorage
+const webStorage = {
+  getItem: (name: string): string | null => {
+    try {
+      return localStorage.getItem(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name: string, value: string): void => {
+    try {
+      localStorage.setItem(name, value);
+    } catch (error) {
+      console.error('Error writing to localStorage:', error);
+    }
+  },
+  removeItem: (name: string): void => {
+    try {
+      localStorage.removeItem(name);
+    } catch (error) {
+      console.error('Error removing from localStorage:', error);
+    }
+  },
+};
+
+// Get the appropriate storage for the platform
+const getStorage = () => {
+  if (Platform.OS === 'web') {
+    return webStorage;
+  }
+  // Dynamic require for native platforms
+  return require('@react-native-async-storage/async-storage').default;
+};
 
 // ============================================================================
 // Types
@@ -260,7 +298,7 @@ export const useAuthStore = create<AuthState>()(
     })),
     {
       name: 'meetup-auth-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => getStorage()),
       partialize: (state) => ({
         hasCompletedOnboarding: state.hasCompletedOnboarding,
       }),
