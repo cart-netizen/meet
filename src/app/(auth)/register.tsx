@@ -13,7 +13,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Link, router } from 'expo-router';
+import { Link } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -97,9 +97,8 @@ export default function RegisterScreen() {
       } else {
         setError('root', { message: result.error ?? 'Ошибка регистрации' });
       }
-    } else {
-      router.replace('/(auth)/onboarding/interests');
     }
+    // Navigation is handled by (auth)/_layout.tsx when user state changes
   };
 
   return (
