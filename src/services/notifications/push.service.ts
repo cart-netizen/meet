@@ -5,10 +5,9 @@
  *
  * Note: expo-notifications has limited support in Expo Go SDK 53+.
  * This service provides graceful degradation when running in Expo Go.
+ * We use conditional require() to avoid loading the module in Expo Go.
  */
 
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
@@ -25,12 +24,27 @@ import { supabase } from '@/services/supabase/client';
 const isExpoGo = Constants.appOwnership === 'expo';
 
 // ============================================================================
+// Conditional Imports
+// ============================================================================
+
+// Only import expo-notifications when NOT in Expo Go to avoid warnings
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const Notifications: typeof import('expo-notifications') | null = isExpoGo
+  ? null
+  : require('expo-notifications');
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const Device: typeof import('expo-device') | null = isExpoGo
+  ? null
+  : require('expo-device');
+
+// ============================================================================
 // Configuration
 // ============================================================================
 
 // Configure how notifications are handled when app is in foreground
 // Only configure on native platforms (not web) and not in Expo Go
-if (Platform.OS !== 'web' && !isExpoGo) {
+if (Platform.OS !== 'web' && !isExpoGo && Notifications) {
   try {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -62,8 +76,19 @@ export interface NotificationPreferences {
   promotions: boolean;
 }
 
-type NotificationListener = (notification: Notifications.Notification) => void;
-type ResponseListener = (response: Notifications.NotificationResponse) => void;
+// Use generic types to avoid dependency on expo-notifications types in Expo Go
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type NotificationListener = (notification: any) => void;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ResponseListener = (response: any) => void;
+
+// Type for notification trigger input
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type NotificationTriggerInput = any;
+
+// Type for notification requests
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type NotificationRequest = any;
 
 // ============================================================================
 // State
@@ -82,7 +107,7 @@ const responseListeners = new Set<ResponseListener>();
  */
 export async function registerForPushNotifications(): Promise<string | null> {
   // Skip in Expo Go - notifications have limited support in SDK 53+
-  if (isExpoGo) {
+  if (isExpoGo || !Notifications || !Device) {
     console.info('Push notifications are not fully supported in Expo Go');
     return null;
   }
@@ -169,7 +194,7 @@ async function savePushToken(token: string): Promise<void> {
           user_id: user.id,
           token,
           platform: Platform.OS,
-          device_name: Device.deviceName ?? 'Unknown',
+          device_name: Device?.deviceName ?? 'Unknown',
           updated_at: new Date().toISOString(),
         },
         {
@@ -219,10 +244,10 @@ export function getPushToken(): string | null {
  */
 export async function scheduleLocalNotification(
   payload: PushNotificationPayload,
-  trigger: Notifications.NotificationTriggerInput = null
+  trigger: NotificationTriggerInput = null
 ): Promise<string> {
   // Skip in Expo Go
-  if (isExpoGo) {
+  if (isExpoGo || !Notifications) {
     console.info('Local notifications are not supported in Expo Go');
     return '';
   }
@@ -255,7 +280,7 @@ export async function scheduleEventReminder(
   minutesBefore: number = 60
 ): Promise<string | null> {
   // Skip in Expo Go
-  if (isExpoGo) {
+  if (isExpoGo || !Notifications) {
     console.info('Event reminders are not supported in Expo Go');
     return null;
   }
@@ -313,7 +338,7 @@ export async function scheduleEventReminder(
  * Cancel scheduled notification
  */
 export async function cancelScheduledNotification(notificationId: string): Promise<void> {
-  if (!isExpoGo) {
+  if (!isExpoGo && Notifications) {
     try {
       await Notifications.cancelScheduledNotificationAsync(notificationId);
     } catch (error) {
@@ -349,7 +374,7 @@ export async function cancelEventNotifications(eventId: string): Promise<void> {
 
     if (notifications) {
       // Only cancel from system if not in Expo Go
-      if (!isExpoGo) {
+      if (!isExpoGo && Notifications) {
         await Promise.all(
           notifications.map((n) =>
             Notifications.cancelScheduledNotificationAsync(n.notification_id).catch((err) =>
@@ -373,8 +398,8 @@ export async function cancelEventNotifications(eventId: string): Promise<void> {
 /**
  * Get all scheduled notifications
  */
-export async function getScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {
-  if (isExpoGo) return [];
+export async function getScheduledNotifications(): Promise<NotificationRequest[]> {
+  if (isExpoGo || !Notifications) return [];
   try {
     return await Notifications.getAllScheduledNotificationsAsync();
   } catch (error) {
@@ -413,7 +438,7 @@ export function addResponseListener(listener: ResponseListener): () => void {
  */
 export function initializeNotificationListeners(): () => void {
   // Skip in Expo Go - notifications have limited support in SDK 53+
-  if (isExpoGo) {
+  if (isExpoGo || !Notifications) {
     return () => {}; // Return no-op cleanup function
   }
 
@@ -451,7 +476,7 @@ export function initializeNotificationListeners(): () => void {
  * Set app badge count
  */
 export async function setBadgeCount(count: number): Promise<void> {
-  if (isExpoGo) return;
+  if (isExpoGo || !Notifications) return;
   try {
     await Notifications.setBadgeCountAsync(count);
   } catch (error) {
@@ -463,7 +488,7 @@ export async function setBadgeCount(count: number): Promise<void> {
  * Get current badge count
  */
 export async function getBadgeCount(): Promise<number> {
-  if (isExpoGo) return 0;
+  if (isExpoGo || !Notifications) return 0;
   try {
     return await Notifications.getBadgeCountAsync();
   } catch (error) {
@@ -476,7 +501,7 @@ export async function getBadgeCount(): Promise<number> {
  * Clear badge
  */
 export async function clearBadge(): Promise<void> {
-  if (isExpoGo) return;
+  if (isExpoGo || !Notifications) return;
   try {
     await Notifications.setBadgeCountAsync(0);
   } catch (error) {
@@ -557,7 +582,7 @@ export async function updateNotificationPreferences(
  * Check if notifications are enabled
  */
 export async function areNotificationsEnabled(): Promise<boolean> {
-  if (isExpoGo) return false;
+  if (isExpoGo || !Notifications) return false;
   try {
     const { status } = await Notifications.getPermissionsAsync();
     return status === 'granted';
@@ -571,6 +596,7 @@ export async function areNotificationsEnabled(): Promise<boolean> {
  * Open device notification settings
  */
 export async function openNotificationSettings(): Promise<void> {
+  if (!Notifications) return;
   // This will open the app's notification settings on the device
   if (Platform.OS === 'ios') {
     // On iOS, we can't directly open settings, but we can prompt
@@ -583,7 +609,7 @@ export async function openNotificationSettings(): Promise<void> {
  * Dismiss all notifications
  */
 export async function dismissAllNotifications(): Promise<void> {
-  if (isExpoGo) return;
+  if (isExpoGo || !Notifications) return;
   try {
     await Notifications.dismissAllNotificationsAsync();
   } catch (error) {
@@ -595,7 +621,7 @@ export async function dismissAllNotifications(): Promise<void> {
  * Dismiss a specific notification
  */
 export async function dismissNotification(notificationId: string): Promise<void> {
-  if (isExpoGo) return;
+  if (isExpoGo || !Notifications) return;
   try {
     await Notifications.dismissNotificationAsync(notificationId);
   } catch (error) {
