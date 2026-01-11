@@ -14,7 +14,7 @@ export default function AuthLayout() {
   const segments = useSegments();
 
   // Check if we're already on an onboarding screen
-  const isOnOnboarding = segments.includes('onboarding');
+  const isOnOnboarding = (segments as string[]).includes('onboarding');
 
   // Redirect authenticated users
   if (user) {
