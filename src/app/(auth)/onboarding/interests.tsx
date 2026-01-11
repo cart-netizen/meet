@@ -26,6 +26,7 @@ import { updateInterests } from '@/services/supabase/profiles.service';
 export default function InterestsScreen() {
   const [selected, setSelected] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const setOnboardingCompleted = useAuthStore((state) => state.setOnboardingCompleted);
   const refreshProfile = useAuthStore((state) => state.refreshProfile);
 
@@ -47,15 +48,23 @@ export default function InterestsScreen() {
     }
 
     setIsLoading(true);
+    setError(null);
 
     try {
-      const { error } = await updateInterests(selected);
+      const { error: updateError } = await updateInterests(selected);
 
-      if (!error) {
-        await refreshProfile();
-        setOnboardingCompleted();
-        router.replace('/(tabs)');
+      if (updateError) {
+        console.error('Failed to update interests:', updateError);
+        setError(updateError.message || 'Не удалось сохранить интересы');
+        return;
       }
+
+      await refreshProfile();
+      setOnboardingCompleted();
+      router.replace('/(tabs)');
+    } catch (e) {
+      console.error('Unexpected error:', e);
+      setError('Произошла ошибка. Попробуйте позже.');
     } finally {
       setIsLoading(false);
     }
@@ -154,6 +163,11 @@ export default function InterestsScreen() {
 
       {/* Footer */}
       <View style={styles.footer}>
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
         <Text style={styles.selectedCount}>
           Выбрано: {selected.length}
           {selected.length < PROFILE_CONFIG.minInterests &&
@@ -279,5 +293,16 @@ const styles = StyleSheet.create({
     color: THEME_COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: 16,
+  },
+  errorBanner: {
+    backgroundColor: '#FEE2E2',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: THEME_COLORS.error,
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
