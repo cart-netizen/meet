@@ -23,11 +23,11 @@ import { format, addHours } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 import { Button, EmailVerificationBanner, Input } from '@/components/ui';
+import { LocationPicker } from '@/components/map';
 import { ALL_CATEGORIES_FLAT, THEME_COLORS } from '@/constants';
 import { selectProfile, useAuthStore, useLocationStore } from '@/stores';
 import { createEvent } from '@/services/supabase/events.service';
 import { resendVerificationEmail } from '@/services/supabase/auth.service';
-import { getPlaceSuggestions, type PlaceSuggestion } from '@/services/location/yandex-maps.service';
 import type { CreateEventData, GeoPoint } from '@/types';
 
 // ============================================================================
@@ -64,7 +64,6 @@ export default function CreateEventScreen() {
   const [currentStep, setCurrentStep] = useState<WizardStep>('category');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState<'startsAt' | 'endsAt' | null>(null);
-  const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([]);
 
   const [formData, setFormData] = useState<FormData>({
     categoryId: '',
@@ -106,32 +105,6 @@ export default function CreateEventScreen() {
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
-
-  // Handle address input
-  const handleAddressChange = useCallback(async (text: string) => {
-    updateField('address', text);
-    // Clear location when user types manually
-    updateField('location', null);
-
-    if (text.length >= 3) {
-      try {
-        const suggestions = await getPlaceSuggestions(text, userLocation ?? undefined);
-        setAddressSuggestions(suggestions);
-      } catch (error) {
-        console.error('Failed to get suggestions:', error);
-      }
-    } else {
-      setAddressSuggestions([]);
-    }
-  }, [userLocation, updateField]);
-
-  // Select address suggestion
-  const handleSelectAddress = useCallback((suggestion: PlaceSuggestion) => {
-    updateField('address', suggestion.address);
-    updateField('location', suggestion.location);
-    updateField('placeName', suggestion.title);
-    setAddressSuggestions([]);
-  }, [updateField]);
 
   // Navigate steps
   const goNext = useCallback(() => {
@@ -479,48 +452,20 @@ export default function CreateEventScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <Text style={styles.stepTitle}>Место проведения</Text>
+            <Text style={styles.stepSubtitle}>
+              Введите адрес или выберите место на карте
+            </Text>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Адрес</Text>
-              <Input
-                value={formData.address}
-                onChangeText={handleAddressChange}
-                placeholder="Начните вводить адрес..."
-              />
-
-              {addressSuggestions.length > 0 && (
-                <View style={styles.suggestions}>
-                  {addressSuggestions.map((suggestion, index) => (
-                    <Pressable
-                      key={index}
-                      style={styles.suggestionItem}
-                      onPress={() => handleSelectAddress(suggestion)}
-                    >
-                      <Text style={styles.suggestionTitle}>{suggestion.title}</Text>
-                      <Text style={styles.suggestionSubtitle}>{suggestion.subtitle}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Название места (необязательно)</Text>
-              <Input
-                value={formData.placeName}
-                onChangeText={(text) => updateField('placeName', text)}
-                placeholder="Например: Кофейня Surf"
-              />
-            </View>
-
-            {formData.location && (
-              <View style={styles.locationConfirm}>
-                <Text style={styles.locationConfirmIcon}>✓</Text>
-                <Text style={styles.locationConfirmText}>
-                  Координаты определены
-                </Text>
-              </View>
-            )}
+            <LocationPicker
+              address={formData.address}
+              location={formData.location}
+              placeName={formData.placeName}
+              onAddressChange={(address) => updateField('address', address)}
+              onLocationChange={(location) => updateField('location', location)}
+              onPlaceNameChange={(placeName) => updateField('placeName', placeName)}
+              userLocation={userLocation}
+              mapHeight={250}
+            />
           </ScrollView>
         );
 

@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 import { Avatar, Badge, Button } from '@/components/ui';
+import { EventMap } from '@/components/map';
 import { getCategoryById, THEME_COLORS } from '@/constants';
 import { selectProfile, useAuthStore, useEventsStore } from '@/stores';
 import { getEventById, joinEvent, leaveEvent } from '@/services/supabase/events.service';
@@ -313,6 +314,29 @@ export default function EventDetailScreen() {
             <Text style={styles.infoArrow}>›</Text>
           </Pressable>
         </View>
+
+        {/* Location Map */}
+        {event.location && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>На карте</Text>
+            <EventMap
+              height={200}
+              markers={[
+                {
+                  id: event.id,
+                  location: event.location,
+                  title: event.placeName ?? event.title,
+                  description: event.address,
+                },
+              ]}
+              initialRegion={{
+                ...event.location,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+            />
+          </View>
+        )}
 
         {/* Description */}
         <View style={styles.section}>

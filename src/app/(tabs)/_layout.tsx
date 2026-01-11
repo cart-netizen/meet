@@ -80,6 +80,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="map"
+        options={{
+          title: 'Карта',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon icon="🗺️" label="Карта" focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="my-events"
         options={{
           title: 'Мои',
