@@ -9,17 +9,51 @@
  * - Secure token storage
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
 import { ENV } from '@/config/env';
 import type { Database } from '@/types/database.types';
 
-// Conditionally import SecureStore only on native platforms
+// ============================================================================
+// Platform-specific Storage
+// ============================================================================
+
+// Web-compatible storage using localStorage
+const webStorage = {
+  getItem: (key: string): Promise<string | null> => {
+    try {
+      return Promise.resolve(localStorage.getItem(key));
+    } catch {
+      return Promise.resolve(null);
+    }
+  },
+  setItem: (key: string, value: string): Promise<void> => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (error) {
+      console.error('Error writing to localStorage:', error);
+    }
+    return Promise.resolve();
+  },
+  removeItem: (key: string): Promise<void> => {
+    try {
+      localStorage.removeItem(key);
+    } catch (error) {
+      console.error('Error removing from localStorage:', error);
+    }
+    return Promise.resolve();
+  },
+};
+
+// Get AsyncStorage only on native platforms
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let AsyncStorage: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let SecureStore: any = null;
+
 if (Platform.OS !== 'web') {
+  AsyncStorage = require('@react-native-async-storage/async-storage').default;
   SecureStore = require('expo-secure-store');
 }
 
@@ -29,16 +63,20 @@ if (Platform.OS !== 'web') {
 
 /**
  * Custom storage adapter using Expo SecureStore for sensitive auth data
- * Falls back to AsyncStorage for web compatibility
+ * Falls back to AsyncStorage on native, localStorage on web
  */
 const ExpoSecureStoreAdapter = {
   getItem: async (key: string): Promise<string | null> => {
     try {
+      // Web platform uses localStorage
+      if (Platform.OS === 'web') {
+        return await webStorage.getItem(key);
+      }
       // SecureStore is only available on native platforms
       if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
         return await SecureStore.getItemAsync(key);
       }
-      return await AsyncStorage.getItem(key);
+      return await AsyncStorage?.getItem(key) ?? null;
     } catch (error) {
       console.error('Error reading from secure storage:', error);
       return null;
@@ -47,9 +85,13 @@ const ExpoSecureStoreAdapter = {
 
   setItem: async (key: string, value: string): Promise<void> => {
     try {
+      if (Platform.OS === 'web') {
+        await webStorage.setItem(key, value);
+        return;
+      }
       if (SecureStore && typeof SecureStore.setItemAsync === 'function') {
         await SecureStore.setItemAsync(key, value);
-      } else {
+      } else if (AsyncStorage) {
         await AsyncStorage.setItem(key, value);
       }
     } catch (error) {
@@ -59,9 +101,13 @@ const ExpoSecureStoreAdapter = {
 
   removeItem: async (key: string): Promise<void> => {
     try {
+      if (Platform.OS === 'web') {
+        await webStorage.removeItem(key);
+        return;
+      }
       if (SecureStore && typeof SecureStore.deleteItemAsync === 'function') {
         await SecureStore.deleteItemAsync(key);
-      } else {
+      } else if (AsyncStorage) {
         await AsyncStorage.removeItem(key);
       }
     } catch (error) {
