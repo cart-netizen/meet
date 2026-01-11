@@ -6,6 +6,7 @@
 import { useCallback, useState } from 'react';
 import {
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,7 +16,9 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, {
+  DateTimePickerAndroid,
+} from '@react-native-community/datetimepicker';
 import { format, addHours } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -371,6 +374,49 @@ export default function CreateEventScreen() {
         );
 
       case 'datetime':
+        // Handler for Android imperative picker
+        const showAndroidPicker = (field: 'startsAt' | 'endsAt') => {
+          const currentValue = formData[field];
+          const minimumDate = field === 'startsAt' ? new Date() : formData.startsAt;
+
+          // First show date picker
+          DateTimePickerAndroid.open({
+            value: currentValue,
+            mode: 'date',
+            minimumDate,
+            onChange: (event, selectedDate) => {
+              if (event.type === 'dismissed' || !selectedDate) return;
+
+              // Then show time picker
+              DateTimePickerAndroid.open({
+                value: selectedDate,
+                mode: 'time',
+                is24Hour: true,
+                onChange: (timeEvent, selectedTime) => {
+                  if (timeEvent.type === 'dismissed' || !selectedTime) return;
+
+                  updateField(field, selectedTime);
+                  // Auto-adjust end time if start time changed
+                  if (field === 'startsAt' && selectedTime >= formData.endsAt) {
+                    updateField('endsAt', addHours(selectedTime, 2));
+                  }
+                },
+              });
+            },
+          });
+        };
+
+        // Handler for iOS declarative picker
+        const handleIOSChange = (event: unknown, date?: Date) => {
+          if (date && showDatePicker) {
+            updateField(showDatePicker, date);
+            // Auto-adjust end time if start time changed
+            if (showDatePicker === 'startsAt' && date >= formData.endsAt) {
+              updateField('endsAt', addHours(date, 2));
+            }
+          }
+        };
+
         return (
           <ScrollView contentContainerStyle={styles.stepContent}>
             <Text style={styles.stepTitle}>Дата и время</Text>
@@ -379,7 +425,13 @@ export default function CreateEventScreen() {
               <Text style={styles.label}>Начало</Text>
               <Pressable
                 style={styles.datetimeButton}
-                onPress={() => setShowDatePicker('startsAt')}
+                onPress={() => {
+                  if (Platform.OS === 'android') {
+                    showAndroidPicker('startsAt');
+                  } else {
+                    setShowDatePicker('startsAt');
+                  }
+                }}
               >
                 <Text style={styles.datetimeText}>
                   {format(formData.startsAt, "d MMMM yyyy, HH:mm", { locale: ru })}
@@ -391,7 +443,13 @@ export default function CreateEventScreen() {
               <Text style={styles.label}>Окончание</Text>
               <Pressable
                 style={styles.datetimeButton}
-                onPress={() => setShowDatePicker('endsAt')}
+                onPress={() => {
+                  if (Platform.OS === 'android') {
+                    showAndroidPicker('endsAt');
+                  } else {
+                    setShowDatePicker('endsAt');
+                  }
+                }}
               >
                 <Text style={styles.datetimeText}>
                   {format(formData.endsAt, "d MMMM yyyy, HH:mm", { locale: ru })}
@@ -399,23 +457,23 @@ export default function CreateEventScreen() {
               </Pressable>
             </View>
 
-            {showDatePicker && (
-              <DateTimePicker
-                value={formData[showDatePicker]}
-                mode="datetime"
-                display="spinner"
-                minimumDate={showDatePicker === 'startsAt' ? new Date() : formData.startsAt}
-                onChange={(event, date) => {
-                  setShowDatePicker(null);
-                  if (date && showDatePicker) {
-                    updateField(showDatePicker, date);
-                    // Auto-adjust end time if start time changed
-                    if (showDatePicker === 'startsAt' && date >= formData.endsAt) {
-                      updateField('endsAt', addHours(date, 2));
-                    }
-                  }
-                }}
-              />
+            {/* iOS only - inline picker */}
+            {Platform.OS === 'ios' && showDatePicker && (
+              <>
+                <DateTimePicker
+                  value={formData[showDatePicker]}
+                  mode="datetime"
+                  display="spinner"
+                  minimumDate={showDatePicker === 'startsAt' ? new Date() : formData.startsAt}
+                  onChange={handleIOSChange}
+                />
+                <Pressable
+                  style={styles.iosPickerDone}
+                  onPress={() => setShowDatePicker(null)}
+                >
+                  <Text style={styles.iosPickerDoneText}>Готово</Text>
+                </Pressable>
+              </>
             )}
           </ScrollView>
         );
@@ -742,6 +800,17 @@ const styles = StyleSheet.create({
   datetimeText: {
     fontSize: 16,
     color: THEME_COLORS.text,
+  },
+  iosPickerDone: {
+    alignSelf: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginTop: 8,
+  },
+  iosPickerDoneText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: THEME_COLORS.primary,
   },
   suggestions: {
     backgroundColor: THEME_COLORS.surface,
