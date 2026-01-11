@@ -19,10 +19,11 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, addHours } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
-import { Button, Input } from '@/components/ui';
+import { Button, EmailVerificationBanner, Input } from '@/components/ui';
 import { ALL_CATEGORIES_FLAT, THEME_COLORS } from '@/constants';
 import { selectProfile, useAuthStore, useLocationStore } from '@/stores';
 import { createEvent } from '@/services/supabase/events.service';
+import { resendVerificationEmail } from '@/services/supabase/auth.service';
 import { forwardGeocode, getPlaceSuggestions } from '@/services/location/yandex-maps.service';
 import type { CreateEventData, GeoPoint } from '@/types';
 
@@ -53,6 +54,8 @@ interface FormData {
 
 export default function CreateEventScreen() {
   const profile = useAuthStore(selectProfile);
+  const session = useAuthStore((state) => state.session);
+  const user = useAuthStore((state) => state.user);
   const userLocation = useLocationStore((state) => state.location);
 
   const [currentStep, setCurrentStep] = useState<WizardStep>('category');
@@ -75,8 +78,23 @@ export default function CreateEventScreen() {
     requiresApproval: false,
   });
 
+  // Check email verification (session exists only when email is verified)
+  const isEmailVerified = session !== null;
+
   // Check subscription
   const canCreateEvent = profile?.subscriptionType === 'organizer';
+
+  // Handle resend verification email
+  const handleResendEmail = async () => {
+    if (user?.email) {
+      const { error } = await resendVerificationEmail(user.email);
+      if (error) {
+        Alert.alert('Ошибка', error.message);
+      } else {
+        Alert.alert('Готово', 'Письмо отправлено повторно');
+      }
+    }
+  };
 
   // Update form field
   const updateField = useCallback(<K extends keyof FormData>(
@@ -238,6 +256,25 @@ export default function CreateEventScreen() {
       setIsSubmitting(false);
     }
   }, [formData, validateStep]);
+
+  // Render email verification required
+  if (!isEmailVerified) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backIcon}>←</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>Создать встречу</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <EmailVerificationBanner
+          message="Для создания встреч необходимо подтвердить email"
+          onResend={handleResendEmail}
+        />
+      </SafeAreaView>
+    );
+  }
 
   // Render subscription wall
   if (!canCreateEvent) {

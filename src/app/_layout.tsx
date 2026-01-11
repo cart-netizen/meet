@@ -121,29 +121,13 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="event/[id]"
-              options={{
-                headerShown: true,
-                headerTitle: '',
-                headerBackTitle: 'Назад',
-                headerTransparent: true,
-              }}
-            />
+            <Stack.Screen name="event/[id]" options={{ headerShown: false }} />
             <Stack.Screen
               name="event/create"
               options={{
                 headerShown: true,
                 headerTitle: 'Новая встреча',
                 presentation: 'modal',
-              }}
-            />
-            <Stack.Screen
-              name="user/[id]"
-              options={{
-                headerShown: true,
-                headerTitle: 'Профиль',
-                headerBackTitle: 'Назад',
               }}
             />
             <Stack.Screen

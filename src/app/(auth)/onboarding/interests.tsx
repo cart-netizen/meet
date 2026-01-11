@@ -29,6 +29,8 @@ export default function InterestsScreen() {
   const [error, setError] = useState<string | null>(null);
   const setOnboardingCompleted = useAuthStore((state) => state.setOnboardingCompleted);
   const refreshProfile = useAuthStore((state) => state.refreshProfile);
+  const setPendingInterests = useAuthStore((state) => state.setPendingInterests);
+  const session = useAuthStore((state) => state.session);
 
   const toggleInterest = (id: string) => {
     setSelected((prev) => {
@@ -51,15 +53,24 @@ export default function InterestsScreen() {
     setError(null);
 
     try {
-      const { error: updateError } = await updateInterests(selected);
+      // Check if we have an active session (email verified)
+      if (session) {
+        // Session exists - save to database
+        const { error: updateError } = await updateInterests(selected);
 
-      if (updateError) {
-        console.error('Failed to update interests:', updateError);
-        setError(updateError.message || 'Не удалось сохранить интересы');
-        return;
+        if (updateError) {
+          console.error('Failed to update interests:', updateError);
+          setError(updateError.message || 'Не удалось сохранить интересы');
+          return;
+        }
+
+        await refreshProfile();
+      } else {
+        // No session (email not verified) - save locally
+        // Will be synced after email verification
+        setPendingInterests(selected);
       }
 
-      await refreshProfile();
       setOnboardingCompleted();
       router.replace('/(tabs)');
     } catch (e) {

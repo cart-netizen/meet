@@ -71,6 +71,8 @@ interface AuthState {
   isInitialized: boolean;
   hasCompletedOnboarding: boolean;
   error: string | null;
+  // Pending data to sync after email verification
+  pendingInterests: string[] | null;
 
   // Actions
   initialize: () => Promise<void>;
@@ -80,6 +82,12 @@ interface AuthState {
   refreshProfile: () => Promise<void>;
   setOnboardingCompleted: () => void;
   clearError: () => void;
+  // Save interests locally (for unverified users)
+  setPendingInterests: (interests: string[]) => void;
+  // Sync pending data to server (after email verification)
+  syncPendingData: () => Promise<void>;
+  // Check if email is verified
+  isEmailVerified: () => boolean;
 }
 
 // ============================================================================
@@ -97,6 +105,7 @@ export const useAuthStore = create<AuthState>()(
       isInitialized: false,
       hasCompletedOnboarding: false,
       error: null,
+      pendingInterests: null,
 
       // Initialize auth state from Supabase
       initialize: async () => {
@@ -135,6 +144,9 @@ export const useAuthStore = create<AuthState>()(
                   state.hasCompletedOnboarding = onboarded;
                   state.isLoading = false;
                 });
+
+                // Sync pending data when session becomes available (email verified)
+                await get().syncPendingData();
               }
             } else if (event === 'SIGNED_OUT') {
               set((state) => {
@@ -226,6 +238,9 @@ export const useAuthStore = create<AuthState>()(
               state.hasCompletedOnboarding = onboarded;
               state.isLoading = false;
             });
+
+            // Sync pending data after successful login (email verified)
+            await get().syncPendingData();
           }
 
           return { success: true };
@@ -295,12 +310,52 @@ export const useAuthStore = create<AuthState>()(
           state.error = null;
         });
       },
+
+      // Save interests locally (for unverified email users)
+      setPendingInterests: (interests: string[]) => {
+        set((state) => {
+          state.pendingInterests = interests;
+        });
+      },
+
+      // Sync pending data to server (called after email verification)
+      syncPendingData: async () => {
+        const { pendingInterests, session } = get();
+
+        if (!session || !pendingInterests) {
+          return;
+        }
+
+        try {
+          // Import dynamically to avoid circular dependency
+          const { updateInterests } = await import('@/services/supabase/profiles.service');
+          const { error } = await updateInterests(pendingInterests);
+
+          if (!error) {
+            set((state) => {
+              state.pendingInterests = null;
+              if (state.profile) {
+                state.profile.interests = pendingInterests;
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Failed to sync pending data:', error);
+        }
+      },
+
+      // Check if email is verified (has active session)
+      isEmailVerified: () => {
+        const { session, user } = get();
+        return session !== null && user !== null;
+      },
     })),
     {
       name: 'meetup-auth-storage',
       storage: createJSONStorage(() => getStorage()),
       partialize: (state) => ({
         hasCompletedOnboarding: state.hasCompletedOnboarding,
+        pendingInterests: state.pendingInterests,
       }),
     }
   )

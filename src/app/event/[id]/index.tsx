@@ -32,6 +32,7 @@ import type { Event, Participant, Profile } from '@/types';
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const profile = useAuthStore(selectProfile);
+  const session = useAuthStore((state) => state.session);
 
   const [event, setEvent] = useState<Event | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -76,6 +77,22 @@ export default function EventDetailScreen() {
   const handleJoin = useCallback(async () => {
     if (!event || !profile) return;
 
+    // Check email verification (session exists only when email is verified)
+    if (!session) {
+      Alert.alert(
+        'Подтвердите email',
+        'Для записи на встречи необходимо подтвердить email. Проверьте почту и перейдите по ссылке в письме.',
+        [
+          { text: 'Отмена', style: 'cancel' },
+          {
+            text: 'Войти',
+            onPress: () => router.push('/(auth)/login'),
+          },
+        ]
+      );
+      return;
+    }
+
     // Check subscription
     if (profile.subscriptionType === 'free') {
       Alert.alert(
@@ -113,7 +130,7 @@ export default function EventDetailScreen() {
     } finally {
       setIsJoining(false);
     }
-  }, [event, profile]);
+  }, [event, profile, session]);
 
   // Handle leave event
   const handleLeave = useCallback(async () => {
