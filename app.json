@@ -52,14 +52,6 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to find meetups near you."
         }
-      ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#6366F1",
-          "sounds": ["./assets/notification-sound.wav"]
-        }
       ]
     ],
     "experiments": {
