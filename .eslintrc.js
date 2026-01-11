@@ -10,7 +10,6 @@ module.exports = {
     project: './tsconfig.json',
   },
   env: {
-    'react-native/react-native': true,
     es2022: true,
     node: true,
     jest: true,
