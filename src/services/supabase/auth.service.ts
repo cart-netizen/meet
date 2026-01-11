@@ -45,6 +45,7 @@ export async function signUp(input: SignUpInput): Promise<AuthResult & ProfileRe
           display_name: displayName,
           city,
         },
+        emailRedirectTo: 'meetuplocal://auth/callback',
       },
     })
   );
