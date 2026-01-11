@@ -58,16 +58,23 @@ export async function signUp(input: SignUpInput): Promise<AuthResult & ProfileRe
     };
   }
 
-  // Wait for trigger to create profile, then fetch it
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Try to fetch profile if session is active
+  // Note: If email confirmation is required, session will be null
+  // and RLS will block profile read. Profile will be fetched on sign-in.
+  let profile: Profile | null = null;
 
-  const { profile, error: profileError } = await getProfile(authData.user.id);
+  if (authData.session) {
+    // Session active - can fetch profile
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const result = await getProfile(authData.user.id);
+    profile = result.profile;
+  }
 
   return {
     user: authData.user,
     session: authData.session,
     profile,
-    error: profileError,
+    error: null,
   };
 }
 
