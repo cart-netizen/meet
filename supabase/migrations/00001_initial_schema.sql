@@ -43,7 +43,7 @@ CREATE TABLE profiles (
   display_name TEXT NOT NULL,
   avatar_url TEXT,
   bio TEXT,
-  birth_year INTEGER CHECK (birth_year >= 1900 AND birth_year <= EXTRACT(YEAR FROM NOW())),
+  birth_year INTEGER CHECK (birth_year >= 1900 AND birth_year <= 2025),
 
   -- Location (critical for geo queries)
   city TEXT NOT NULL,
