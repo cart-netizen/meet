@@ -529,7 +529,12 @@ export default function CreateEventScreen() {
                 ]}
                 onPress={() => updateField('allowChat', !formData.allowChat)}
               >
-                <View style={styles.toggleThumb} />
+                <View
+                  style={[
+                    styles.toggleThumb,
+                    formData.allowChat && styles.toggleThumbActive,
+                  ]}
+                />
               </Pressable>
             </View>
 
@@ -549,7 +554,12 @@ export default function CreateEventScreen() {
                   updateField('requiresApproval', !formData.requiresApproval)
                 }
               >
-                <View style={styles.toggleThumb} />
+                <View
+                  style={[
+                    styles.toggleThumb,
+                    formData.requiresApproval && styles.toggleThumbActive,
+                  ]}
+                />
               </Pressable>
             </View>
           </ScrollView>
@@ -848,15 +858,20 @@ const styles = StyleSheet.create({
     backgroundColor: THEME_COLORS.border,
     padding: 2,
     justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   toggleActive: {
     backgroundColor: THEME_COLORS.primary,
+    alignItems: 'flex-end',
   },
   toggleThumb: {
     width: 26,
     height: 26,
     borderRadius: 13,
     backgroundColor: '#FFFFFF',
+  },
+  toggleThumbActive: {
+    // Thumb moves to right when active via parent alignItems
   },
   footer: {
     position: 'absolute',

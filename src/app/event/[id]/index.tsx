@@ -22,7 +22,7 @@ import { Avatar, Badge, Button } from '@/components/ui';
 import { EventMap } from '@/components/map';
 import { getCategoryById, THEME_COLORS } from '@/constants';
 import { selectProfile, useAuthStore, useEventsStore } from '@/stores';
-import { getEventById, joinEvent, leaveEvent } from '@/services/supabase/events.service';
+import { getEventById, getEventParticipants, joinEvent, leaveEvent } from '@/services/supabase/events.service';
 import { scheduleEventReminder, cancelEventNotifications } from '@/services/notifications/push.service';
 import type { Event, Participant, Profile } from '@/types';
 
@@ -57,11 +57,28 @@ export default function EventDetailScreen() {
 
       setIsLoading(true);
       try {
-        const data = await getEventById(id);
-        if (data) {
-          setEvent(data.event);
-          setParticipants(data.participants);
-          setOrganizer(data.organizer);
+        // Fetch event and participants in parallel
+        const [eventResult, participantsResult] = await Promise.all([
+          getEventById(id),
+          getEventParticipants(id),
+        ]);
+
+        if (eventResult.event) {
+          setEvent(eventResult.event);
+          // Use organizer from event data (fetched via join)
+          if (eventResult.event.organizer) {
+            setOrganizer({
+              id: eventResult.event.organizer.id,
+              displayName: eventResult.event.organizer.displayName,
+              avatarUrl: eventResult.event.organizer.avatarUrl ?? null,
+              rating: eventResult.event.organizer.rating,
+              eventsOrganized: eventResult.event.organizer.eventsOrganized ?? 0,
+            } as Profile);
+          }
+        }
+
+        if (participantsResult.participants) {
+          setParticipants(participantsResult.participants);
         }
       } catch (error) {
         console.error('Failed to fetch event:', error);
@@ -118,10 +135,15 @@ export default function EventDetailScreen() {
       await scheduleEventReminder(event.id, event.title, event.startsAt, 60);
 
       // Refresh event data
-      const data = await getEventById(event.id);
-      if (data) {
-        setEvent(data.event);
-        setParticipants(data.participants);
+      const [eventResult, participantsResult] = await Promise.all([
+        getEventById(event.id),
+        getEventParticipants(event.id),
+      ]);
+      if (eventResult.event) {
+        setEvent(eventResult.event);
+      }
+      if (participantsResult.participants) {
+        setParticipants(participantsResult.participants);
       }
 
       Alert.alert('Готово!', 'Вы записались на встречу');
@@ -154,10 +176,15 @@ export default function EventDetailScreen() {
               await cancelEventNotifications(event.id);
 
               // Refresh event data
-              const data = await getEventById(event.id);
-              if (data) {
-                setEvent(data.event);
-                setParticipants(data.participants);
+              const [eventResult, participantsResult] = await Promise.all([
+                getEventById(event.id),
+                getEventParticipants(event.id),
+              ]);
+              if (eventResult.event) {
+                setEvent(eventResult.event);
+              }
+              if (participantsResult.participants) {
+                setParticipants(participantsResult.participants);
               }
             } catch (error) {
               console.error('Failed to leave event:', error);
