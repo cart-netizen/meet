@@ -1,5 +1,57 @@
 # MeetUp.local — Платформа микро-встреч для поиска друзей
 
+Для запуска проекта:
+
+# 1. Запустить Expo Dev Server
+npm start
+
+# или напрямую для конкретной платформы:
+npm run android    # Android эмулятор/устройство
+npm run ios        # iOS симулятор (только на macOS)
+npm run web        # Веб-версия в браузере
+
+После npm start:
+
+Откроется Expo DevTools в терминале
+Нажмите a для Android, i для iOS, w для веб
+Или отсканируйте QR-код в приложении Expo Go на телефоне
+Требования:
+
+Для Android: Android Studio с эмулятором или Expo Go на устройстве
+Для iOS: Xcode (только macOS) или Expo Go на iPhone
+Для веб: просто браузер
+Если на Windows с Android:
+
+npm run android
+
+Android SDK не установлен. Есть 3 варианта:
+
+Вариант 1: Запустить веб-версию (самый быстрый)
+npm run web
+
+Откроется в браузере - удобно для разработки UI.
+
+Вариант 2: Использовать Expo Go на телефоне
+npm start
+
+Установите Expo Go из Google Play на Android-телефон
+Отсканируйте QR-код из терминала
+Приложение запустится на телефоне
+Вариант 3: Установить Android Studio
+Скачайте Android Studio
+При установке выберите "Android SDK"
+После установки добавьте переменные среды:
+# В PowerShell (от администратора):
+[Environment]::SetEnvironmentVariable("ANDROID_HOME", "$env:LOCALAPPDATA\Android\Sdk", "User")
+[Environment]::SetEnvironmentVariable("Path", "$env:Path;$env:LOCALAPPDATA\Android\Sdk\platform-tools", "User")
+
+Перезапустите терминал
+Создайте эмулятор в Android Studio → Device Manager
+Запустите: npm run android
+Рекомендую начать с npm run web - это самый быстрый способ увидеть приложение.
+
+
+
 ## Полное руководство по реализации MVP
 
 ---
