@@ -1,7 +1,7 @@
 /**
  * EventMap Component
  * Map component for displaying and selecting event locations
- * Uses react-native-maps with fallback for web
+ * Uses react-native-maps with fallback for web and Expo Go
  */
 
 import { useCallback, useRef, useState } from 'react';
@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import Constants from 'expo-constants';
 
 import { THEME_COLORS } from '@/constants';
 import type { GeoPoint } from '@/types';
@@ -31,7 +31,12 @@ export interface EventMapMarker {
 
 export interface EventMapProps {
   /** Initial region to display */
-  initialRegion?: Region;
+  initialRegion?: {
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  };
   /** Markers to display on the map */
   markers?: EventMapMarker[];
   /** Selected location (for location picker) */
@@ -49,17 +54,39 @@ export interface EventMapProps {
 }
 
 // ============================================================================
+// Check if running in Expo Go
+// ============================================================================
+
+const isExpoGo = Constants.appOwnership === 'expo';
+
+// Conditionally load react-native-maps (not available in Expo Go)
+let MapView: typeof import('react-native-maps').default | null = null;
+let Marker: typeof import('react-native-maps').Marker | null = null;
+let PROVIDER_GOOGLE: typeof import('react-native-maps').PROVIDER_GOOGLE | undefined = undefined;
+
+if (!isExpoGo && Platform.OS !== 'web') {
+  try {
+    const maps = require('react-native-maps');
+    MapView = maps.default;
+    Marker = maps.Marker;
+    PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
+  } catch (error) {
+    console.warn('react-native-maps not available:', error);
+  }
+}
+
+// ============================================================================
 // Constants
 // ============================================================================
 
-const DEFAULT_REGION: Region = {
+const DEFAULT_REGION = {
   latitude: 55.7558,
   longitude: 37.6173,
   latitudeDelta: 0.1,
   longitudeDelta: 0.1,
 };
 
-const MOSCOW_REGION: Region = {
+const MOSCOW_REGION = {
   latitude: 55.7558,
   longitude: 37.6173,
   latitudeDelta: 0.05,
@@ -80,8 +107,8 @@ export function EventMap({
   height = 300,
   showUserLocation = false,
 }: EventMapProps) {
-  const mapRef = useRef<MapView>(null);
-  const [region, setRegion] = useState<Region>(initialRegion ?? DEFAULT_REGION);
+  const mapRef = useRef<InstanceType<typeof import('react-native-maps').default> | null>(null);
+  const [region, setRegion] = useState(initialRegion ?? DEFAULT_REGION);
 
   // Handle map press for location selection
   const handleMapPress = useCallback(
@@ -104,31 +131,35 @@ export function EventMap({
     [onMarkerPress]
   );
 
-  // Animate to location
-  const animateToLocation = useCallback((location: GeoPoint) => {
-    mapRef.current?.animateToRegion({
-      ...location,
-      latitudeDelta: 0.02,
-      longitudeDelta: 0.02,
-    });
-  }, []);
-
   // Center on Moscow button
   const handleCenterMoscow = useCallback(() => {
     mapRef.current?.animateToRegion(MOSCOW_REGION);
   }, []);
 
-  // Web fallback
-  if (Platform.OS === 'web') {
+  // Fallback for Web and Expo Go
+  if (Platform.OS === 'web' || isExpoGo || !MapView || !Marker) {
     return (
       <View style={[styles.container, { height }]}>
-        <View style={styles.webFallback}>
-          <Text style={styles.webFallbackText}>
-            Карта недоступна в веб-версии
+        <View style={styles.fallback}>
+          <Text style={styles.fallbackIcon}>🗺️</Text>
+          <Text style={styles.fallbackText}>
+            {isExpoGo
+              ? 'Карты недоступны в Expo Go'
+              : 'Карта недоступна в веб-версии'}
           </Text>
           {selectedLocation && (
-            <Text style={styles.webCoordinates}>
-              {selectedLocation.latitude.toFixed(6)}, {selectedLocation.longitude.toFixed(6)}
+            <Text style={styles.fallbackCoordinates}>
+              📍 {selectedLocation.latitude.toFixed(6)}, {selectedLocation.longitude.toFixed(6)}
+            </Text>
+          )}
+          {markers.length > 0 && (
+            <Text style={styles.fallbackMarkers}>
+              {markers.length} мест{markers.length === 1 ? 'о' : markers.length < 5 ? 'а' : ''}
+            </Text>
+          )}
+          {isExpoGo && (
+            <Text style={styles.fallbackHint}>
+              Для использования карт создайте development build
             </Text>
           )}
         </View>
@@ -136,9 +167,12 @@ export function EventMap({
     );
   }
 
+  const MapViewComponent = MapView;
+  const MarkerComponent = Marker;
+
   return (
     <View style={[styles.container, { height }]}>
-      <MapView
+      <MapViewComponent
         ref={mapRef}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
@@ -151,7 +185,7 @@ export function EventMap({
       >
         {/* Selected location marker */}
         {selectedLocation && (
-          <Marker
+          <MarkerComponent
             coordinate={selectedLocation}
             pinColor={THEME_COLORS.primary}
             title="Выбранное место"
@@ -160,7 +194,7 @@ export function EventMap({
 
         {/* Event markers */}
         {markers.map((marker) => (
-          <Marker
+          <MarkerComponent
             key={marker.id}
             coordinate={marker.location}
             pinColor={marker.color ?? THEME_COLORS.primary}
@@ -169,7 +203,7 @@ export function EventMap({
             onPress={() => handleMarkerPress(marker)}
           />
         ))}
-      </MapView>
+      </MapViewComponent>
 
       {/* Controls overlay */}
       <View style={styles.controls}>
@@ -240,19 +274,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  webFallback: {
+  fallback: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: THEME_COLORS.surfaceVariant,
+    padding: 20,
   },
-  webFallbackText: {
+  fallbackIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  fallbackText: {
     fontSize: 16,
     color: THEME_COLORS.textSecondary,
+    textAlign: 'center',
   },
-  webCoordinates: {
+  fallbackCoordinates: {
+    fontSize: 13,
+    color: THEME_COLORS.text,
+    marginTop: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  fallbackMarkers: {
+    fontSize: 14,
+    color: THEME_COLORS.primary,
+    marginTop: 8,
+  },
+  fallbackHint: {
     fontSize: 12,
     color: THEME_COLORS.textMuted,
-    marginTop: 8,
+    marginTop: 16,
+    textAlign: 'center',
   },
 });

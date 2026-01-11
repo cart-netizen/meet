@@ -1,11 +1,11 @@
 /**
  * Events Map Screen
  * Displays all events on an interactive map
+ * Falls back to a placeholder in Expo Go
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, PROVIDER_GOOGLE, Region, Callout } from 'react-native-maps';
+import Constants from 'expo-constants';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -22,6 +22,41 @@ import { Badge } from '@/components/ui';
 import { getCategoryById, THEME_COLORS } from '@/constants';
 import { useEventsStore, useLocationStore } from '@/stores';
 import type { Event } from '@/types';
+
+// ============================================================================
+// Check if running in Expo Go
+// ============================================================================
+
+const isExpoGo = Constants.appOwnership === 'expo';
+
+// Conditionally load react-native-maps (not available in Expo Go)
+let MapView: typeof import('react-native-maps').default | null = null;
+let Marker: typeof import('react-native-maps').Marker | null = null;
+let Callout: typeof import('react-native-maps').Callout | null = null;
+let PROVIDER_GOOGLE: typeof import('react-native-maps').PROVIDER_GOOGLE | undefined = undefined;
+
+if (!isExpoGo && Platform.OS !== 'web') {
+  try {
+    const maps = require('react-native-maps');
+    MapView = maps.default;
+    Marker = maps.Marker;
+    Callout = maps.Callout;
+    PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
+  } catch (error) {
+    console.warn('react-native-maps not available:', error);
+  }
+}
+
+// ============================================================================
+// Types
+// ============================================================================
+
+interface Region {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+}
 
 // ============================================================================
 // Constants
@@ -58,7 +93,7 @@ export default function EventsMapScreen() {
         setIsLoading(false);
       }
     }
-    loadEvents();
+    void loadEvents();
   }, [fetchEvents]);
 
   // Filter events with valid locations
@@ -113,24 +148,42 @@ export default function EventsMapScreen() {
     return category?.color ?? THEME_COLORS.primary;
   }, []);
 
-  // Web fallback
-  if (Platform.OS === 'web') {
+  // Fallback for Web and Expo Go
+  if (Platform.OS === 'web' || isExpoGo || !MapView || !Marker) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.webFallback}>
-          <Text style={styles.webFallbackText}>
-            Карта недоступна в веб-версии
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>События на карте</Text>
+          <Badge variant="secondary" size="sm">
+            {eventsWithLocation.length} событий
+          </Badge>
+        </View>
+        <View style={styles.fallback}>
+          <Text style={styles.fallbackIcon}>🗺️</Text>
+          <Text style={styles.fallbackText}>
+            {isExpoGo
+              ? 'Карты недоступны в Expo Go'
+              : 'Карта недоступна в веб-версии'}
           </Text>
+          {isExpoGo && (
+            <Text style={styles.fallbackHint}>
+              Для использования карт создайте development build
+            </Text>
+          )}
           <Pressable
-            style={styles.webFallbackButton}
+            style={styles.fallbackButton}
             onPress={() => router.push('/(tabs)')}
           >
-            <Text style={styles.webFallbackButtonText}>Смотреть список</Text>
+            <Text style={styles.fallbackButtonText}>Смотреть список</Text>
           </Pressable>
         </View>
       </SafeAreaView>
     );
   }
+
+  const MapViewComponent = MapView;
+  const MarkerComponent = Marker;
+  const CalloutComponent = Callout!;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -144,7 +197,7 @@ export default function EventsMapScreen() {
 
       {/* Map */}
       <View style={styles.mapContainer}>
-        <MapView
+        <MapViewComponent
           style={styles.map}
           provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
           initialRegion={initialRegion}
@@ -155,7 +208,7 @@ export default function EventsMapScreen() {
           {eventsWithLocation.map((event) => {
             const category = getCategoryById(event.categoryId);
             return (
-              <Marker
+              <MarkerComponent
                 key={event.id}
                 coordinate={event.location!}
                 pinColor={getMarkerColor(event.categoryId)}
@@ -166,7 +219,7 @@ export default function EventsMapScreen() {
                     {category?.icon ?? '📍'}
                   </Text>
                 </View>
-                <Callout tooltip onPress={() => handleNavigateToEvent(event.id)}>
+                <CalloutComponent tooltip onPress={() => handleNavigateToEvent(event.id)}>
                   <View style={styles.callout}>
                     <Text style={styles.calloutTitle} numberOfLines={1}>
                       {event.title}
@@ -176,11 +229,11 @@ export default function EventsMapScreen() {
                     </Text>
                     <Text style={styles.calloutHint}>Нажмите для подробностей</Text>
                   </View>
-                </Callout>
-              </Marker>
+                </CalloutComponent>
+              </MarkerComponent>
             );
           })}
-        </MapView>
+        </MapViewComponent>
 
         {/* Loading overlay */}
         {isLoading && (
@@ -397,24 +450,35 @@ const styles = StyleSheet.create({
     color: THEME_COLORS.textSecondary,
     marginLeft: 12,
   },
-  webFallback: {
+  fallback: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
   },
-  webFallbackText: {
-    fontSize: 16,
-    color: THEME_COLORS.textSecondary,
+  fallbackIcon: {
+    fontSize: 64,
     marginBottom: 16,
   },
-  webFallbackButton: {
+  fallbackText: {
+    fontSize: 18,
+    color: THEME_COLORS.textSecondary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  fallbackHint: {
+    fontSize: 14,
+    color: THEME_COLORS.textMuted,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  fallbackButton: {
     paddingVertical: 12,
     paddingHorizontal: 24,
     backgroundColor: THEME_COLORS.primary,
     borderRadius: 12,
   },
-  webFallbackButtonText: {
+  fallbackButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
