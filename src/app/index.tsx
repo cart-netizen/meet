@@ -5,10 +5,10 @@
 
 import { Redirect } from 'expo-router';
 
-import { useAuthStore } from '@/stores';
+import { selectIsAuthenticated, useAuthStore } from '@/stores';
 
 export default function Index() {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const isInitialized = useAuthStore((state) => state.isInitialized);
 
   // Wait for auth initialization
