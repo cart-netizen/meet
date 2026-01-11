@@ -5,14 +5,16 @@
 
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
+import * as Linking from 'expo-linking';
 
 import { THEME_COLORS } from '@/constants';
 import { useAuthStore } from '@/stores';
 import { validateEnv } from '@/config/env';
+import { supabase } from '@/services/supabase/client';
 
 // ============================================================================
 // Theme Configuration
@@ -49,6 +51,49 @@ export default function RootLayout() {
 
     // Initialize auth
     initialize();
+
+    // Handle deep links for auth callbacks
+    const handleDeepLink = async (event: { url: string }) => {
+      const url = event.url;
+
+      // Check if this is an auth callback
+      if (url.includes('auth/callback')) {
+        const hashIndex = url.indexOf('#');
+        if (hashIndex !== -1) {
+          const hashParams = new URLSearchParams(url.substring(hashIndex + 1));
+          const access_token = hashParams.get('access_token');
+          const refresh_token = hashParams.get('refresh_token');
+
+          if (access_token && refresh_token) {
+            try {
+              await supabase.auth.setSession({
+                access_token,
+                refresh_token,
+              });
+              // Reinitialize to update auth state
+              initialize();
+              router.replace('/');
+            } catch (error) {
+              console.error('Failed to set session from deep link:', error);
+            }
+          }
+        }
+      }
+    };
+
+    // Listen for deep links while app is running
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Check if app was opened via deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink({ url });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, [initialize]);
 
   if (!isInitialized) {
@@ -69,6 +114,7 @@ export default function RootLayout() {
           >
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
             <Stack.Screen
               name="event/[id]"
               options={{
