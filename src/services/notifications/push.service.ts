@@ -2,28 +2,46 @@
  * Push Notifications Service
  * Handles push notification registration, permissions, and local notifications
  * Uses expo-notifications for cross-platform support
+ *
+ * Note: expo-notifications has limited support in Expo Go SDK 53+.
+ * This service provides graceful degradation when running in Expo Go.
  */
 
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import { supabase } from '@/services/supabase/client';
+
+// ============================================================================
+// Expo Go Detection
+// ============================================================================
+
+/**
+ * Check if app is running in Expo Go
+ * expo-notifications has limited support in Expo Go SDK 53+
+ */
+const isExpoGo = Constants.appOwnership === 'expo';
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
 // Configure how notifications are handled when app is in foreground
-// Only configure on native platforms (not web)
-if (Platform.OS !== 'web') {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-    }),
-  });
+// Only configure on native platforms (not web) and not in Expo Go
+if (Platform.OS !== 'web' && !isExpoGo) {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
+    });
+  } catch (error) {
+    console.warn('Failed to configure notification handler:', error);
+  }
 }
 
 // ============================================================================
@@ -63,6 +81,12 @@ const responseListeners = new Set<ResponseListener>();
  * Register for push notifications and get token
  */
 export async function registerForPushNotifications(): Promise<string | null> {
+  // Skip in Expo Go - notifications have limited support in SDK 53+
+  if (isExpoGo) {
+    console.info('Push notifications are not fully supported in Expo Go');
+    return null;
+  }
+
   // Check if physical device (push notifications don't work on simulators)
   if (!Device.isDevice) {
     console.warn('Push notifications require a physical device');
@@ -197,17 +221,28 @@ export async function scheduleLocalNotification(
   payload: PushNotificationPayload,
   trigger: Notifications.NotificationTriggerInput = null
 ): Promise<string> {
-  const notificationId = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: payload.title,
-      body: payload.body,
-      data: payload.data ?? {},
-      sound: true,
-    },
-    trigger,
-  });
+  // Skip in Expo Go
+  if (isExpoGo) {
+    console.info('Local notifications are not supported in Expo Go');
+    return '';
+  }
 
-  return notificationId;
+  try {
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: payload.title,
+        body: payload.body,
+        data: payload.data ?? {},
+        sound: true,
+      },
+      trigger,
+    });
+
+    return notificationId;
+  } catch (error) {
+    console.warn('Failed to schedule notification:', error);
+    return '';
+  }
 }
 
 /**
@@ -219,6 +254,12 @@ export async function scheduleEventReminder(
   startsAt: Date,
   minutesBefore: number = 60
 ): Promise<string | null> {
+  // Skip in Expo Go
+  if (isExpoGo) {
+    console.info('Event reminders are not supported in Expo Go');
+    return null;
+  }
+
   const triggerDate = new Date(startsAt.getTime() - minutesBefore * 60 * 1000);
 
   // Don't schedule if trigger time is in the past
@@ -226,22 +267,28 @@ export async function scheduleEventReminder(
     return null;
   }
 
-  const notificationId = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Напоминание о встрече',
-      body: `${eventTitle} начнётся через ${minutesBefore} минут`,
-      data: {
-        type: 'event_reminder',
-        eventId,
+  let notificationId: string;
+  try {
+    notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Напоминание о встрече',
+        body: `${eventTitle} начнётся через ${minutesBefore} минут`,
+        data: {
+          type: 'event_reminder',
+          eventId,
+        },
+        sound: true,
+        categoryIdentifier: 'event_reminder',
       },
-      sound: true,
-      categoryIdentifier: 'event_reminder',
-    },
-    trigger: {
-      date: triggerDate,
-      channelId: 'event_reminders',
-    },
-  });
+      trigger: {
+        date: triggerDate,
+        channelId: 'event_reminders',
+      },
+    });
+  } catch (error) {
+    console.warn('Failed to schedule event reminder:', error);
+    return null;
+  }
 
   // Save reminder to database for tracking
   try {
@@ -266,7 +313,13 @@ export async function scheduleEventReminder(
  * Cancel scheduled notification
  */
 export async function cancelScheduledNotification(notificationId: string): Promise<void> {
-  await Notifications.cancelScheduledNotificationAsync(notificationId);
+  if (!isExpoGo) {
+    try {
+      await Notifications.cancelScheduledNotificationAsync(notificationId);
+    } catch (error) {
+      console.warn('Failed to cancel scheduled notification:', error);
+    }
+  }
 
   // Remove from database
   try {
@@ -295,11 +348,16 @@ export async function cancelEventNotifications(eventId: string): Promise<void> {
       .eq('event_id', eventId);
 
     if (notifications) {
-      await Promise.all(
-        notifications.map((n) =>
-          Notifications.cancelScheduledNotificationAsync(n.notification_id)
-        )
-      );
+      // Only cancel from system if not in Expo Go
+      if (!isExpoGo) {
+        await Promise.all(
+          notifications.map((n) =>
+            Notifications.cancelScheduledNotificationAsync(n.notification_id).catch((err) =>
+              console.warn('Failed to cancel notification:', err)
+            )
+          )
+        );
+      }
 
       await supabase
         .from('scheduled_notifications')
@@ -316,7 +374,13 @@ export async function cancelEventNotifications(eventId: string): Promise<void> {
  * Get all scheduled notifications
  */
 export async function getScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {
-  return Notifications.getAllScheduledNotificationsAsync();
+  if (isExpoGo) return [];
+  try {
+    return await Notifications.getAllScheduledNotificationsAsync();
+  } catch (error) {
+    console.warn('Failed to get scheduled notifications:', error);
+    return [];
+  }
 }
 
 // ============================================================================
@@ -348,25 +412,35 @@ export function addResponseListener(listener: ResponseListener): () => void {
  * Call this once when app starts
  */
 export function initializeNotificationListeners(): () => void {
-  // Listen for notifications received while app is in foreground
-  const notificationSubscription = Notifications.addNotificationReceivedListener(
-    (notification) => {
-      notificationListeners.forEach((listener) => listener(notification));
-    }
-  );
+  // Skip in Expo Go - notifications have limited support in SDK 53+
+  if (isExpoGo) {
+    return () => {}; // Return no-op cleanup function
+  }
 
-  // Listen for notification responses (user taps on notification)
-  const responseSubscription = Notifications.addNotificationResponseReceivedListener(
-    (response) => {
-      responseListeners.forEach((listener) => listener(response));
-    }
-  );
+  try {
+    // Listen for notifications received while app is in foreground
+    const notificationSubscription = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        notificationListeners.forEach((listener) => listener(notification));
+      }
+    );
 
-  // Return cleanup function
-  return () => {
-    notificationSubscription.remove();
-    responseSubscription.remove();
-  };
+    // Listen for notification responses (user taps on notification)
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        responseListeners.forEach((listener) => listener(response));
+      }
+    );
+
+    // Return cleanup function
+    return () => {
+      notificationSubscription.remove();
+      responseSubscription.remove();
+    };
+  } catch (error) {
+    console.warn('Failed to initialize notification listeners:', error);
+    return () => {}; // Return no-op cleanup function
+  }
 }
 
 // ============================================================================
@@ -377,21 +451,37 @@ export function initializeNotificationListeners(): () => void {
  * Set app badge count
  */
 export async function setBadgeCount(count: number): Promise<void> {
-  await Notifications.setBadgeCountAsync(count);
+  if (isExpoGo) return;
+  try {
+    await Notifications.setBadgeCountAsync(count);
+  } catch (error) {
+    console.warn('Failed to set badge count:', error);
+  }
 }
 
 /**
  * Get current badge count
  */
 export async function getBadgeCount(): Promise<number> {
-  return Notifications.getBadgeCountAsync();
+  if (isExpoGo) return 0;
+  try {
+    return await Notifications.getBadgeCountAsync();
+  } catch (error) {
+    console.warn('Failed to get badge count:', error);
+    return 0;
+  }
 }
 
 /**
  * Clear badge
  */
 export async function clearBadge(): Promise<void> {
-  await Notifications.setBadgeCountAsync(0);
+  if (isExpoGo) return;
+  try {
+    await Notifications.setBadgeCountAsync(0);
+  } catch (error) {
+    console.warn('Failed to clear badge:', error);
+  }
 }
 
 // ============================================================================
@@ -467,8 +557,14 @@ export async function updateNotificationPreferences(
  * Check if notifications are enabled
  */
 export async function areNotificationsEnabled(): Promise<boolean> {
-  const { status } = await Notifications.getPermissionsAsync();
-  return status === 'granted';
+  if (isExpoGo) return false;
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    return status === 'granted';
+  } catch (error) {
+    console.warn('Failed to check notification permissions:', error);
+    return false;
+  }
 }
 
 /**
@@ -487,12 +583,22 @@ export async function openNotificationSettings(): Promise<void> {
  * Dismiss all notifications
  */
 export async function dismissAllNotifications(): Promise<void> {
-  await Notifications.dismissAllNotificationsAsync();
+  if (isExpoGo) return;
+  try {
+    await Notifications.dismissAllNotificationsAsync();
+  } catch (error) {
+    console.warn('Failed to dismiss notifications:', error);
+  }
 }
 
 /**
  * Dismiss a specific notification
  */
 export async function dismissNotification(notificationId: string): Promise<void> {
-  await Notifications.dismissNotificationAsync(notificationId);
+  if (isExpoGo) return;
+  try {
+    await Notifications.dismissNotificationAsync(notificationId);
+  } catch (error) {
+    console.warn('Failed to dismiss notification:', error);
+  }
 }
