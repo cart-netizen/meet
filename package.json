@@ -22,10 +22,12 @@
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
     "@react-native-async-storage/async-storage": "1.21.0",
+    "@react-native-community/datetimepicker": "^7.6.1",
     "@react-navigation/native": "^6.1.12",
+    "expo-device": "~5.9.3",
     "@supabase/supabase-js": "^2.39.3",
     "date-fns": "^3.3.1",
-    "date-fns-tz": "^2.0.0",
+    "date-fns-tz": "^3.0.0",
     "expo": "~50.0.6",
     "expo-constants": "~15.4.5",
     "expo-font": "~11.10.2",
