@@ -4,7 +4,7 @@
  * Uses react-native-maps with fallback for web and Expo Go
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -54,28 +54,6 @@ export interface EventMapProps {
 }
 
 // ============================================================================
-// Check if running in Expo Go
-// ============================================================================
-
-const isExpoGo = Constants.appOwnership === 'expo';
-
-// Conditionally load react-native-maps (not available in Expo Go)
-let MapView: typeof import('react-native-maps').default | null = null;
-let Marker: typeof import('react-native-maps').Marker | null = null;
-let PROVIDER_GOOGLE: typeof import('react-native-maps').PROVIDER_GOOGLE | undefined = undefined;
-
-if (!isExpoGo && Platform.OS !== 'web') {
-  try {
-    const maps = require('react-native-maps');
-    MapView = maps.default;
-    Marker = maps.Marker;
-    PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
-  } catch (error) {
-    console.warn('react-native-maps not available:', error);
-  }
-}
-
-// ============================================================================
 // Constants
 // ============================================================================
 
@@ -107,7 +85,27 @@ export function EventMap({
   height = 300,
   showUserLocation = false,
 }: EventMapProps) {
-  const mapRef = useRef<InstanceType<typeof import('react-native-maps').default> | null>(null);
+  // Check if running in Expo Go - must be inside component to avoid module-level errors
+  const isExpoGo = Constants.appOwnership === 'expo';
+  const isMapAvailable = !isExpoGo && Platform.OS !== 'web';
+
+  // Dynamically load react-native-maps only when available
+  const mapComponents = useMemo(() => {
+    if (!isMapAvailable) return null;
+
+    try {
+      const maps = require('react-native-maps');
+      return {
+        MapView: maps.default,
+        Marker: maps.Marker,
+        PROVIDER_GOOGLE: maps.PROVIDER_GOOGLE,
+      };
+    } catch {
+      return null;
+    }
+  }, [isMapAvailable]);
+
+  const mapRef = useRef<unknown>(null);
   const [region, setRegion] = useState(initialRegion ?? DEFAULT_REGION);
 
   // Handle map press for location selection
@@ -133,11 +131,13 @@ export function EventMap({
 
   // Center on Moscow button
   const handleCenterMoscow = useCallback(() => {
-    mapRef.current?.animateToRegion(MOSCOW_REGION);
+    if (mapRef.current && typeof (mapRef.current as { animateToRegion?: (region: typeof MOSCOW_REGION) => void }).animateToRegion === 'function') {
+      (mapRef.current as { animateToRegion: (region: typeof MOSCOW_REGION) => void }).animateToRegion(MOSCOW_REGION);
+    }
   }, []);
 
   // Fallback for Web and Expo Go
-  if (Platform.OS === 'web' || isExpoGo || !MapView || !Marker) {
+  if (!mapComponents) {
     return (
       <View style={[styles.container, { height }]}>
         <View style={styles.fallback}>
@@ -145,7 +145,7 @@ export function EventMap({
           <Text style={styles.fallbackText}>
             {isExpoGo
               ? 'Карты недоступны в Expo Go'
-              : 'Карта недоступна в веб-версии'}
+              : 'Карта недоступна'}
           </Text>
           {selectedLocation && (
             <Text style={styles.fallbackCoordinates}>
@@ -159,7 +159,7 @@ export function EventMap({
           )}
           {isExpoGo && (
             <Text style={styles.fallbackHint}>
-              Для использования карт создайте development build
+              Для карт нужен development build
             </Text>
           )}
         </View>
@@ -167,8 +167,7 @@ export function EventMap({
     );
   }
 
-  const MapViewComponent = MapView;
-  const MarkerComponent = Marker;
+  const { MapView: MapViewComponent, Marker: MarkerComponent, PROVIDER_GOOGLE } = mapComponents;
 
   return (
     <View style={[styles.container, { height }]}>

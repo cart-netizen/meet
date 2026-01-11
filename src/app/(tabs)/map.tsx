@@ -24,30 +24,6 @@ import { useEventsStore, useLocationStore } from '@/stores';
 import type { Event } from '@/types';
 
 // ============================================================================
-// Check if running in Expo Go
-// ============================================================================
-
-const isExpoGo = Constants.appOwnership === 'expo';
-
-// Conditionally load react-native-maps (not available in Expo Go)
-let MapView: typeof import('react-native-maps').default | null = null;
-let Marker: typeof import('react-native-maps').Marker | null = null;
-let Callout: typeof import('react-native-maps').Callout | null = null;
-let PROVIDER_GOOGLE: typeof import('react-native-maps').PROVIDER_GOOGLE | undefined = undefined;
-
-if (!isExpoGo && Platform.OS !== 'web') {
-  try {
-    const maps = require('react-native-maps');
-    MapView = maps.default;
-    Marker = maps.Marker;
-    Callout = maps.Callout;
-    PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
-  } catch (error) {
-    console.warn('react-native-maps not available:', error);
-  }
-}
-
-// ============================================================================
 // Types
 // ============================================================================
 
@@ -80,6 +56,27 @@ export default function EventsMapScreen() {
 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Check if running in Expo Go - must be inside component
+  const isExpoGo = Constants.appOwnership === 'expo';
+  const isMapAvailable = !isExpoGo && Platform.OS !== 'web';
+
+  // Dynamically load react-native-maps only when available
+  const mapComponents = useMemo(() => {
+    if (!isMapAvailable) return null;
+
+    try {
+      const maps = require('react-native-maps');
+      return {
+        MapView: maps.default,
+        Marker: maps.Marker,
+        Callout: maps.Callout,
+        PROVIDER_GOOGLE: maps.PROVIDER_GOOGLE,
+      };
+    } catch {
+      return null;
+    }
+  }, [isMapAvailable]);
 
   // Fetch events on mount
   useEffect(() => {
@@ -149,7 +146,7 @@ export default function EventsMapScreen() {
   }, []);
 
   // Fallback for Web and Expo Go
-  if (Platform.OS === 'web' || isExpoGo || !MapView || !Marker) {
+  if (!mapComponents) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -181,9 +178,7 @@ export default function EventsMapScreen() {
     );
   }
 
-  const MapViewComponent = MapView;
-  const MarkerComponent = Marker;
-  const CalloutComponent = Callout!;
+  const { MapView: MapViewComponent, Marker: MarkerComponent, Callout: CalloutComponent, PROVIDER_GOOGLE } = mapComponents;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
