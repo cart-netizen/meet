@@ -179,7 +179,7 @@ CREATE TABLE events (
 -- Indexes for events (critical for 10K concurrent events)
 -- Primary discovery query: upcoming events near location
 CREATE INDEX idx_events_discovery ON events(starts_at, city, status)
-  WHERE status = 'published' AND starts_at > NOW();
+  WHERE status = 'published';
 
 -- Geo-spatial index (critical for "events near me")
 CREATE INDEX idx_events_location ON events USING GIST(location);
