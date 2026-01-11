@@ -18,6 +18,7 @@ import {
   signOut as authSignOut,
   signUp as authSignUp,
 } from '@/services/supabase/auth.service';
+import { isDemoMode } from '@/services/supabase/client';
 
 // ============================================================================
 // Types
@@ -68,6 +69,16 @@ export const useAuthStore = create<AuthState>()(
         set((state) => {
           state.isLoading = true;
         });
+
+        // In demo mode, skip Supabase auth
+        if (isDemoMode()) {
+          console.log('🎭 Running in demo mode - skipping auth');
+          set((state) => {
+            state.isInitialized = true;
+            state.isLoading = false;
+          });
+          return;
+        }
 
         try {
           // Set up auth state listener
