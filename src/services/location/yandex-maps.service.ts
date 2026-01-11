@@ -185,10 +185,55 @@ export async function getPlaceSuggestions(
   query: string,
   userLocation?: GeoPoint
 ): Promise<PlaceSuggestion[]> {
+  if (query.length < 3) {
+    return [];
+  }
+
   const apiKey = ENV.yandexMaps.apiKey;
 
-  if (!apiKey || query.length < 3) {
-    return [];
+  // Return mock data in development without API key
+  if (!apiKey) {
+    const mockSuggestions: PlaceSuggestion[] = [
+      {
+        title: 'Тверская улица, 1',
+        subtitle: 'Москва, Россия',
+        address: 'Москва, Тверская улица, 1',
+        location: { latitude: 55.7558, longitude: 37.6173 },
+      },
+      {
+        title: 'Невский проспект, 28',
+        subtitle: 'Санкт-Петербург, Россия',
+        address: 'Санкт-Петербург, Невский проспект, 28',
+        location: { latitude: 59.9343, longitude: 30.3351 },
+      },
+      {
+        title: 'Парк Горького',
+        subtitle: 'Москва, Крымский Вал, 9',
+        address: 'Москва, Крымский Вал, 9',
+        location: { latitude: 55.7312, longitude: 37.6030 },
+      },
+      {
+        title: 'ВДНХ',
+        subtitle: 'Москва, проспект Мира, 119',
+        address: 'Москва, проспект Мира, 119',
+        location: { latitude: 55.8262, longitude: 37.6377 },
+      },
+      {
+        title: 'Красная площадь',
+        subtitle: 'Москва, Россия',
+        address: 'Москва, Красная площадь',
+        location: { latitude: 55.7539, longitude: 37.6208 },
+      },
+    ];
+
+    // Filter by query
+    const lowerQuery = query.toLowerCase();
+    return mockSuggestions.filter(
+      (s) =>
+        s.title.toLowerCase().includes(lowerQuery) ||
+        s.address.toLowerCase().includes(lowerQuery) ||
+        s.subtitle.toLowerCase().includes(lowerQuery)
+    );
   }
 
   try {

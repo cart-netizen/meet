@@ -27,7 +27,7 @@ import { ALL_CATEGORIES_FLAT, THEME_COLORS } from '@/constants';
 import { selectProfile, useAuthStore, useLocationStore } from '@/stores';
 import { createEvent } from '@/services/supabase/events.service';
 import { resendVerificationEmail } from '@/services/supabase/auth.service';
-import { forwardGeocode, getPlaceSuggestions } from '@/services/location/yandex-maps.service';
+import { getPlaceSuggestions, type PlaceSuggestion } from '@/services/location/yandex-maps.service';
 import type { CreateEventData, GeoPoint } from '@/types';
 
 // ============================================================================
@@ -64,7 +64,7 @@ export default function CreateEventScreen() {
   const [currentStep, setCurrentStep] = useState<WizardStep>('category');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState<'startsAt' | 'endsAt' | null>(null);
-  const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
+  const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([]);
 
   const [formData, setFormData] = useState<FormData>({
     categoryId: '',
@@ -110,11 +110,13 @@ export default function CreateEventScreen() {
   // Handle address input
   const handleAddressChange = useCallback(async (text: string) => {
     updateField('address', text);
+    // Clear location when user types manually
+    updateField('location', null);
 
     if (text.length >= 3) {
       try {
         const suggestions = await getPlaceSuggestions(text, userLocation ?? undefined);
-        setAddressSuggestions(suggestions.map((s) => s.address));
+        setAddressSuggestions(suggestions);
       } catch (error) {
         console.error('Failed to get suggestions:', error);
       }
@@ -124,19 +126,11 @@ export default function CreateEventScreen() {
   }, [userLocation, updateField]);
 
   // Select address suggestion
-  const handleSelectAddress = useCallback(async (address: string) => {
-    updateField('address', address);
+  const handleSelectAddress = useCallback((suggestion: PlaceSuggestion) => {
+    updateField('address', suggestion.address);
+    updateField('location', suggestion.location);
+    updateField('placeName', suggestion.title);
     setAddressSuggestions([]);
-
-    try {
-      const result = await forwardGeocode(address);
-      if (result) {
-        updateField('location', result.location);
-        updateField('placeName', result.name ?? '');
-      }
-    } catch (error) {
-      console.error('Failed to geocode address:', error);
-    }
   }, [updateField]);
 
   // Navigate steps
@@ -502,7 +496,8 @@ export default function CreateEventScreen() {
                       style={styles.suggestionItem}
                       onPress={() => handleSelectAddress(suggestion)}
                     >
-                      <Text style={styles.suggestionText}>{suggestion}</Text>
+                      <Text style={styles.suggestionTitle}>{suggestion.title}</Text>
+                      <Text style={styles.suggestionSubtitle}>{suggestion.subtitle}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -826,9 +821,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: THEME_COLORS.divider,
   },
-  suggestionText: {
-    fontSize: 14,
+  suggestionTitle: {
+    fontSize: 15,
+    fontWeight: '500',
     color: THEME_COLORS.text,
+    marginBottom: 2,
+  },
+  suggestionSubtitle: {
+    fontSize: 13,
+    color: THEME_COLORS.textSecondary,
   },
   locationConfirm: {
     flexDirection: 'row',
