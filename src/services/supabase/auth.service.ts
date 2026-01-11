@@ -30,12 +30,12 @@ interface ProfileResult {
 
 /**
  * Register a new user with email and password
- * Also creates their initial profile
+ * Profile is created automatically by database trigger
  */
 export async function signUp(input: SignUpInput): Promise<AuthResult & ProfileResult> {
   const { email, password, displayName, city } = input;
 
-  // Step 1: Create auth user
+  // Create auth user (profile created automatically by trigger)
   const { data: authData, error: authError } = await withRetry(() =>
     supabase.auth.signUp({
       email,
@@ -58,34 +58,16 @@ export async function signUp(input: SignUpInput): Promise<AuthResult & ProfileRe
     };
   }
 
-  // Step 2: Create profile (triggered by auth.users insert trigger in production)
-  // In dev, we create it manually
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .upsert({
-      id: authData.user.id,
-      display_name: displayName,
-      city,
-      interests: [],
-      subscription_type: 'free',
-    })
-    .select()
-    .single();
+  // Wait for trigger to create profile, then fetch it
+  await new Promise(resolve => setTimeout(resolve, 500));
 
-  if (profileError) {
-    return {
-      user: authData.user,
-      session: authData.session,
-      profile: null,
-      error: new Error(profileError.message),
-    };
-  }
+  const { profile, error: profileError } = await getProfile(authData.user.id);
 
   return {
     user: authData.user,
     session: authData.session,
-    profile: transformProfile(profile),
-    error: null,
+    profile,
+    error: profileError,
   };
 }
 
