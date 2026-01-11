@@ -11,10 +11,17 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
-import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 import { ENV } from '@/config/env';
 import type { Database } from '@/types/database.types';
+
+// Conditionally import SecureStore only on native platforms
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let SecureStore: any = null;
+if (Platform.OS !== 'web') {
+  SecureStore = require('expo-secure-store');
+}
 
 // ============================================================================
 // Secure Storage Adapter for Auth Tokens
@@ -28,7 +35,7 @@ const ExpoSecureStoreAdapter = {
   getItem: async (key: string): Promise<string | null> => {
     try {
       // SecureStore is only available on native platforms
-      if (typeof SecureStore.getItemAsync === 'function') {
+      if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
         return await SecureStore.getItemAsync(key);
       }
       return await AsyncStorage.getItem(key);
@@ -40,7 +47,7 @@ const ExpoSecureStoreAdapter = {
 
   setItem: async (key: string, value: string): Promise<void> => {
     try {
-      if (typeof SecureStore.setItemAsync === 'function') {
+      if (SecureStore && typeof SecureStore.setItemAsync === 'function') {
         await SecureStore.setItemAsync(key, value);
       } else {
         await AsyncStorage.setItem(key, value);
@@ -52,7 +59,7 @@ const ExpoSecureStoreAdapter = {
 
   removeItem: async (key: string): Promise<void> => {
     try {
-      if (typeof SecureStore.deleteItemAsync === 'function') {
+      if (SecureStore && typeof SecureStore.deleteItemAsync === 'function') {
         await SecureStore.deleteItemAsync(key);
       } else {
         await AsyncStorage.removeItem(key);

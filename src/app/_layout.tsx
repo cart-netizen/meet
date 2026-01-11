@@ -4,6 +4,7 @@
  */
 
 import { useEffect } from 'react';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Stack, router } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -97,7 +98,12 @@ export default function RootLayout() {
   }, [initialize]);
 
   if (!isInitialized) {
-    return null; // Or a splash screen
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={THEME_COLORS.primary} />
+        <Text style={styles.loadingText}>Загрузка...</Text>
+      </View>
+    );
   }
 
   return (
@@ -154,3 +160,21 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+// ============================================================================
+// Styles
+// ============================================================================
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: THEME_COLORS.background,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: THEME_COLORS.textSecondary,
+  },
+});
