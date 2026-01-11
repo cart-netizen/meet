@@ -67,12 +67,16 @@ const ExpoSecureStoreAdapter = {
 // Supabase Client Configuration
 // ============================================================================
 
-const supabaseUrl = ENV.supabase.url;
-const supabaseAnonKey = ENV.supabase.anonKey;
+// Use placeholder values for development if not configured
+const supabaseUrl = ENV.supabase.url || 'https://placeholder.supabase.co';
+const supabaseAnonKey = ENV.supabase.anonKey || 'placeholder-anon-key';
 
-if (!supabaseUrl || !supabaseAnonKey) {
+const isConfigured = !!ENV.supabase.url && !!ENV.supabase.anonKey;
+
+if (!isConfigured) {
   console.warn(
-    'Supabase credentials not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY'
+    '⚠️ Supabase not configured. Running in demo mode.\n' +
+    'Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env'
   );
 }
 
@@ -351,6 +355,17 @@ export async function getSession() {
 export async function isAuthenticated(): Promise<boolean> {
   const session = await getSession();
   return session !== null;
+}
+
+// ============================================================================
+// Demo Mode Helpers
+// ============================================================================
+
+/**
+ * Check if running in demo mode (no Supabase configured)
+ */
+export function isDemoMode(): boolean {
+  return !isConfigured;
 }
 
 // ============================================================================
