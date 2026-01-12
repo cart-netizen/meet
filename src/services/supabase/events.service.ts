@@ -303,6 +303,13 @@ async function searchEventsNearby(
   const offset = (page - 1) * limit;
   const distanceMeters = (filters.maxDistance ?? 10) * 1000;
 
+  console.log('searchEventsNearby called with:', {
+    location,
+    distanceMeters,
+    city: filters.city,
+    dateFrom: (filters.dateFrom ?? new Date()).toISOString(),
+  });
+
   const { data, error } = await supabase.rpc('search_events_nearby', {
     p_latitude: location.latitude,
     p_longitude: location.longitude,
@@ -321,6 +328,8 @@ async function searchEventsNearby(
     // Don't filter by city in fallback - show all events and let user filter manually
     return searchEventsFallback({ ...filters, city: undefined }, pagination);
   }
+
+  console.log('searchEventsNearby RPC returned:', data?.length ?? 0, 'events');
 
   // For nearby search, we need a separate count query
   const events = (data ?? []).map((row: Record<string, unknown>) =>
