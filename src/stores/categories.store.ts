@@ -127,7 +127,8 @@ export const useCategoriesStore = create<CategoriesState>()(
 
         if (error || categories.length === 0) {
           // Use fallback data if fetch fails
-          console.warn('Failed to fetch categories, using fallback:', error?.message);
+          const errorMessage = error?.message ?? 'Категории не загружены с сервера';
+          console.warn('[CategoriesStore] Init failed, using fallback:', errorMessage);
           const fallback = initializeWithFallback();
 
           set((state) => {
@@ -135,7 +136,7 @@ export const useCategoriesStore = create<CategoriesState>()(
             state.categoriesFlat = fallback.flat;
             state.categoriesById = fallback.byId;
             state.categoriesBySlug = fallback.bySlug;
-            state.error = error?.message ?? 'No categories found';
+            state.error = errorMessage;
             state.isLoading = false;
             state.isInitialized = true;
           });
@@ -157,7 +158,8 @@ export const useCategoriesStore = create<CategoriesState>()(
         });
       } catch (error) {
         // Use fallback data on error
-        console.warn('Exception fetching categories, using fallback:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Ошибка загрузки категорий';
+        console.error('[CategoriesStore] Init exception, using fallback:', error);
         const fallback = initializeWithFallback();
 
         set((state) => {
@@ -165,7 +167,7 @@ export const useCategoriesStore = create<CategoriesState>()(
           state.categoriesFlat = fallback.flat;
           state.categoriesById = fallback.byId;
           state.categoriesBySlug = fallback.bySlug;
-          state.error = error instanceof Error ? error.message : 'Failed to load categories';
+          state.error = errorMessage;
           state.isLoading = false;
           state.isInitialized = true;
         });
@@ -193,9 +195,13 @@ export const useCategoriesStore = create<CategoriesState>()(
       try {
         const { categories, error } = await fetchCategories();
 
-        if (error) {
+        if (error || categories.length === 0) {
+          // Keep existing categories but show error
+          const errorMessage =
+            error?.message ?? 'Категории не загружены. Проверьте подключение к интернету.';
+          console.warn('[CategoriesStore] Refresh failed:', errorMessage);
           set((state) => {
-            state.error = error.message;
+            state.error = errorMessage;
             state.isLoading = false;
           });
           return;
@@ -210,11 +216,13 @@ export const useCategoriesStore = create<CategoriesState>()(
           state.categoriesById = byId;
           state.categoriesBySlug = bySlug;
           state.isLoading = false;
+          state.error = null;
           state.lastFetched = Date.now();
         });
       } catch (error) {
+        console.error('[CategoriesStore] Refresh exception:', error);
         set((state) => {
-          state.error = error instanceof Error ? error.message : 'Failed to refresh categories';
+          state.error = error instanceof Error ? error.message : 'Ошибка загрузки категорий';
           state.isLoading = false;
         });
       }

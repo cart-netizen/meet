@@ -89,14 +89,22 @@ export async function fetchCategories(): Promise<CategoriesResult> {
     );
 
     if (error) {
+      console.error('[Categories] Supabase error:', error.message, error.code);
       return { categories: [], error: new Error(error.message) };
+    }
+
+    if (!data || data.length === 0) {
+      console.warn('[Categories] No categories returned from database');
+      return { categories: [], error: new Error('No categories found in database') };
     }
 
     // Transform flat database rows into hierarchical structure
     const categories = transformToHierarchy((data as DatabaseCategory[]) ?? []);
+    console.log(`[Categories] Loaded ${data.length} categories from database`);
 
     return { categories, error: null };
   } catch (error) {
+    console.error('[Categories] Exception during fetch:', error);
     return {
       categories: [],
       error: error instanceof Error ? error : new Error('Failed to fetch categories'),
