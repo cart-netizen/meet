@@ -68,14 +68,22 @@ export default function DiscoveryScreen() {
   useEffect(() => {
     const init = async () => {
       await getCurrentLocation();
-      await fetchEvents(location ?? undefined, true);
     };
     init();
   }, []);
 
+  // Set city filter when city changes and fetch events
+  useEffect(() => {
+    if (city) {
+      setFilters({ city: city.name });
+    }
+  }, [city?.name]);
+
   // Refetch on filter change
   useEffect(() => {
-    fetchEvents(location ?? undefined, true);
+    if (filters.city) {
+      fetchEvents(location ?? undefined, true);
+    }
   }, [filters]);
 
   const handleRefresh = useCallback(async () => {
@@ -116,10 +124,11 @@ export default function DiscoveryScreen() {
   const handleCitySelect = useCallback(
     (selectedCity: City) => {
       setSelectedCity(selectedCity);
-      // Refetch events for new city
+      // Set city filter and refetch events
+      setFilters({ city: selectedCity.name });
       fetchEvents(selectedCity.location, true);
     },
-    [setSelectedCity, fetchEvents]
+    [setSelectedCity, setFilters, fetchEvents]
   );
 
   const renderEvent = useCallback(
