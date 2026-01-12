@@ -318,7 +318,8 @@ async function searchEventsNearby(
   if (error) {
     console.error('searchEventsNearby RPC error:', error);
     // Fallback to regular query when RPC is not available
-    return searchEventsFallback(filters, pagination);
+    // Don't filter by city in fallback - show all events and let user filter manually
+    return searchEventsFallback({ ...filters, city: undefined }, pagination);
   }
 
   // For nearby search, we need a separate count query
