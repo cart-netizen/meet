@@ -20,8 +20,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui';
 import { EventCard } from '@/components/events/EventCard';
+import { CityPicker } from '@/components/discovery/CityPicker';
 import { FilterSheet } from '@/components/discovery/FilterSheet';
 import { SEARCH_CONFIG, THEME_COLORS } from '@/constants';
+import type { City } from '@/constants/cities';
 import {
   selectCategories,
   selectDiscoveryEvents,
@@ -43,6 +45,7 @@ import type { Event, EventFilters } from '@/types';
 export default function DiscoveryScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isCityPickerOpen, setIsCityPickerOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   // Store selectors
@@ -58,6 +61,7 @@ export default function DiscoveryScreen() {
   const location = useLocationStore(selectEffectiveLocation);
   const city = useLocationStore(selectEffectiveCity);
   const getCurrentLocation = useLocationStore((state) => state.getCurrentLocation);
+  const setSelectedCity = useLocationStore((state) => state.setSelectedCity);
   const categories = useCategoriesStore(selectCategories);
 
   // Initial fetch
@@ -109,6 +113,15 @@ export default function DiscoveryScreen() {
     router.push(`/event/${event.id}`);
   }, []);
 
+  const handleCitySelect = useCallback(
+    (selectedCity: City) => {
+      setSelectedCity(selectedCity);
+      // Refetch events for new city
+      fetchEvents(selectedCity.location, true);
+    },
+    [setSelectedCity, fetchEvents]
+  );
+
   const renderEvent = useCallback(
     ({ item }: { item: Event }) => (
       <EventCard event={item} onPress={() => handleEventPress(item)} />
@@ -127,7 +140,10 @@ export default function DiscoveryScreen() {
       <View style={styles.header}>
         <View style={styles.locationRow}>
           <Text style={styles.locationLabel}>Встречи в</Text>
-          <Pressable style={styles.locationButton}>
+          <Pressable
+            style={styles.locationButton}
+            onPress={() => setIsCityPickerOpen(true)}
+          >
             <Text style={styles.locationText}>{city?.name ?? 'Москва'}</Text>
             <Text style={styles.locationArrow}>▼</Text>
           </Pressable>
@@ -317,6 +333,14 @@ export default function DiscoveryScreen() {
           resetFilters();
           setIsFilterOpen(false);
         }}
+      />
+
+      {/* City Picker */}
+      <CityPicker
+        isOpen={isCityPickerOpen}
+        onClose={() => setIsCityPickerOpen(false)}
+        selectedCity={city ?? null}
+        onSelect={handleCitySelect}
       />
     </SafeAreaView>
   );

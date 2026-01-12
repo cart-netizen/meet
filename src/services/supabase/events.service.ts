@@ -352,10 +352,28 @@ export async function getEventsByOrganizer(
   const { page, limit } = pagination;
   const offset = (page - 1) * limit;
 
+  // Resolve 'me' to actual user ID
+  let resolvedOrganizerId = organizerId;
+  if (organizerId === 'me') {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      };
+    }
+    resolvedOrganizerId = user.id;
+  }
+
   const { data, error, count } = await supabase
     .from('events')
     .select(EVENT_SELECT_QUERY, { count: 'exact' })
-    .eq('organizer_id', organizerId)
+    .eq('organizer_id', resolvedOrganizerId)
     .order('starts_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -395,6 +413,24 @@ export async function getEventsParticipating(
   const { page, limit } = pagination;
   const offset = (page - 1) * limit;
 
+  // Resolve 'me' to actual user ID
+  let resolvedUserId = userId;
+  if (userId === 'me') {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      };
+    }
+    resolvedUserId = user.id;
+  }
+
   const { data, error, count } = await supabase
     .from('event_participants')
     .select(
@@ -403,7 +439,7 @@ export async function getEventsParticipating(
     `,
       { count: 'exact' }
     )
-    .eq('user_id', userId)
+    .eq('user_id', resolvedUserId)
     .in('status', ['approved', 'pending'])
     .order('joined_at', { ascending: false })
     .range(offset, offset + limit - 1);
