@@ -781,6 +781,19 @@ const EVENT_SELECT_QUERY = `
 // ============================================================================
 
 function transformEvent(data: Record<string, unknown>): Event {
+  const startsAt = new Date(data.starts_at as string);
+  const durationMinutes = data.duration_minutes as number | null;
+
+  // Calculate endsAt: use ends_at from DB if available, otherwise calculate from duration
+  let endsAt: Date;
+  if (data.ends_at) {
+    endsAt = new Date(data.ends_at as string);
+  } else if (durationMinutes) {
+    endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000);
+  } else {
+    endsAt = startsAt; // fallback if no ends_at and no duration
+  }
+
   return {
     id: data.id as string,
     organizerId: data.organizer_id as string,
@@ -789,9 +802,9 @@ function transformEvent(data: Record<string, unknown>): Event {
     categoryId: data.category_id as string,
     tags: (data.tags as string[]) ?? [],
     coverImageUrl: data.cover_image_url as string | null,
-    startsAt: new Date(data.starts_at as string),
-    endsAt: data.ends_at ? new Date(data.ends_at as string) : null,
-    durationMinutes: data.duration_minutes as number | null,
+    startsAt,
+    endsAt,
+    durationMinutes,
     timezone: data.timezone as string,
     location: parseLocation(data.location) ?? { latitude: 0, longitude: 0 },
     address: data.address as string,
@@ -816,6 +829,19 @@ function transformEvent(data: Record<string, unknown>): Event {
 }
 
 function transformEventFromRpc(data: Record<string, unknown>): Event {
+  const startsAt = new Date(data.starts_at as string);
+  const durationMinutes = data.duration_minutes as number | null;
+
+  // Calculate endsAt from duration if available
+  let endsAt: Date;
+  if (data.ends_at) {
+    endsAt = new Date(data.ends_at as string);
+  } else if (durationMinutes) {
+    endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000);
+  } else {
+    endsAt = startsAt; // fallback
+  }
+
   return {
     id: data.id as string,
     organizerId: data.organizer_id as string,
@@ -824,9 +850,9 @@ function transformEventFromRpc(data: Record<string, unknown>): Event {
     categoryId: data.category_id as string,
     tags: [],
     coverImageUrl: null,
-    startsAt: new Date(data.starts_at as string),
-    endsAt: null,
-    durationMinutes: null,
+    startsAt,
+    endsAt,
+    durationMinutes,
     timezone: 'Europe/Moscow',
     location: parseLocation(data.location) ?? { latitude: 0, longitude: 0 },
     address: data.address as string,
