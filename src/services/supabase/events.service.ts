@@ -781,17 +781,27 @@ const EVENT_SELECT_QUERY = `
 // ============================================================================
 
 function transformEvent(data: Record<string, unknown>): Event {
-  const startsAt = new Date(data.starts_at as string);
+  // Parse startsAt with validation
+  const startsAtRaw = data.starts_at as string | null;
+  const startsAt = startsAtRaw ? new Date(startsAtRaw) : new Date();
+  // Ensure startsAt is valid
+  const validStartsAt = isNaN(startsAt.getTime()) ? new Date() : startsAt;
+
   const durationMinutes = data.duration_minutes as number | null;
 
   // Calculate endsAt: use ends_at from DB if available, otherwise calculate from duration
   let endsAt: Date;
   if (data.ends_at) {
-    endsAt = new Date(data.ends_at as string);
+    const parsedEndsAt = new Date(data.ends_at as string);
+    // Validate parsed date
+    endsAt = isNaN(parsedEndsAt.getTime())
+      ? new Date(validStartsAt.getTime() + (durationMinutes ?? 60) * 60 * 1000)
+      : parsedEndsAt;
   } else if (durationMinutes) {
-    endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000);
+    endsAt = new Date(validStartsAt.getTime() + durationMinutes * 60 * 1000);
   } else {
-    endsAt = startsAt; // fallback if no ends_at and no duration
+    // Default to 1 hour duration if no ends_at and no duration
+    endsAt = new Date(validStartsAt.getTime() + 60 * 60 * 1000);
   }
 
   return {
@@ -802,7 +812,7 @@ function transformEvent(data: Record<string, unknown>): Event {
     categoryId: data.category_id as string,
     tags: (data.tags as string[]) ?? [],
     coverImageUrl: data.cover_image_url as string | null,
-    startsAt,
+    startsAt: validStartsAt,
     endsAt,
     durationMinutes,
     timezone: data.timezone as string,
@@ -829,17 +839,25 @@ function transformEvent(data: Record<string, unknown>): Event {
 }
 
 function transformEventFromRpc(data: Record<string, unknown>): Event {
-  const startsAt = new Date(data.starts_at as string);
+  // Parse startsAt with validation
+  const startsAtRaw = data.starts_at as string | null;
+  const startsAt = startsAtRaw ? new Date(startsAtRaw) : new Date();
+  const validStartsAt = isNaN(startsAt.getTime()) ? new Date() : startsAt;
+
   const durationMinutes = data.duration_minutes as number | null;
 
   // Calculate endsAt from duration if available
   let endsAt: Date;
   if (data.ends_at) {
-    endsAt = new Date(data.ends_at as string);
+    const parsedEndsAt = new Date(data.ends_at as string);
+    endsAt = isNaN(parsedEndsAt.getTime())
+      ? new Date(validStartsAt.getTime() + (durationMinutes ?? 60) * 60 * 1000)
+      : parsedEndsAt;
   } else if (durationMinutes) {
-    endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000);
+    endsAt = new Date(validStartsAt.getTime() + durationMinutes * 60 * 1000);
   } else {
-    endsAt = startsAt; // fallback
+    // Default to 1 hour duration
+    endsAt = new Date(validStartsAt.getTime() + 60 * 60 * 1000);
   }
 
   return {
@@ -850,7 +868,7 @@ function transformEventFromRpc(data: Record<string, unknown>): Event {
     categoryId: data.category_id as string,
     tags: [],
     coverImageUrl: null,
-    startsAt,
+    startsAt: validStartsAt,
     endsAt,
     durationMinutes,
     timezone: 'Europe/Moscow',

@@ -451,10 +451,10 @@ export default function EventDetailScreen() {
         )}
 
         {/* Price */}
-        {event.price && event.price > 0 && (
+        {event.entryFee > 0 && (
           <View style={styles.priceCard}>
             <Text style={styles.priceLabel}>Стоимость участия</Text>
-            <Text style={styles.priceValue}>{event.price} ₽</Text>
+            <Text style={styles.priceValue}>{event.entryFee} ₽</Text>
           </View>
         )}
       </ScrollView>
