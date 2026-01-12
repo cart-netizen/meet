@@ -89,7 +89,7 @@ export async function fetchMessages(
 
   return withRetry(async () => {
     let query = supabase
-      .from('messages')
+      .from('event_messages')
       .select(`
         *,
         author:profiles!sender_id (
@@ -97,7 +97,7 @@ export async function fetchMessages(
           display_name,
           avatar_url
         ),
-        replyTo:messages!reply_to_id (
+        replyTo:event_messages!reply_to_id (
           id,
           content,
           sender_id
@@ -156,7 +156,7 @@ export async function sendMessage(params: SendMessageParams): Promise<MessageWit
     }
 
     const { data, error } = await supabase
-      .from('messages')
+      .from('event_messages')
       .insert({
         event_id: eventId,
         sender_id: user.id,
@@ -170,7 +170,7 @@ export async function sendMessage(params: SendMessageParams): Promise<MessageWit
           display_name,
           avatar_url
         ),
-        replyTo:messages!reply_to_id (
+        replyTo:event_messages!reply_to_id (
           id,
           content,
           sender_id
@@ -205,7 +205,7 @@ export async function editMessage(
     }
 
     const { data, error } = await supabase
-      .from('messages')
+      .from('event_messages')
       .update({
         content: trimmedContent,
         edited_at: new Date().toISOString(),
@@ -219,7 +219,7 @@ export async function editMessage(
           display_name,
           avatar_url
         ),
-        replyTo:messages!reply_to_id (
+        replyTo:event_messages!reply_to_id (
           id,
           content,
           sender_id
@@ -246,7 +246,7 @@ export async function deleteMessage(messageId: string): Promise<void> {
     }
 
     const { error } = await supabase
-      .from('messages')
+      .from('event_messages')
       .delete()
       .eq('id', messageId)
       .eq('sender_id', user.id); // Ensure user owns the message
@@ -277,14 +277,14 @@ export function subscribeToMessages(
     {
       event: 'INSERT',
       schema: 'public',
-      table: 'messages',
+      table: 'event_messages',
       filter: `event_id=eq.${eventId}`,
     },
     async (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
       try {
         // Fetch full message with author
         const { data, error } = await supabase
-          .from('messages')
+          .from('event_messages')
           .select(`
             *,
             author:profiles!sender_id (
@@ -292,7 +292,7 @@ export function subscribeToMessages(
               display_name,
               avatar_url
             ),
-            replyTo:messages!reply_to_id (
+            replyTo:event_messages!reply_to_id (
               id,
               content,
               sender_id
@@ -323,13 +323,13 @@ export function subscribeToMessages(
     {
       event: 'UPDATE',
       schema: 'public',
-      table: 'messages',
+      table: 'event_messages',
       filter: `event_id=eq.${eventId}`,
     },
     async (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
       try {
         const { data, error } = await supabase
-          .from('messages')
+          .from('event_messages')
           .select(`
             *,
             author:profiles!sender_id (
@@ -337,7 +337,7 @@ export function subscribeToMessages(
               display_name,
               avatar_url
             ),
-            replyTo:messages!reply_to_id (
+            replyTo:event_messages!reply_to_id (
               id,
               content,
               sender_id
@@ -372,7 +372,7 @@ export function subscribeToMessages(
     {
       event: 'DELETE',
       schema: 'public',
-      table: 'messages',
+      table: 'event_messages',
       filter: `event_id=eq.${eventId}`,
     },
     (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {

@@ -196,6 +196,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '80%',
+    minHeight: 400,
   },
   handle: {
     width: 40,
