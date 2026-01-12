@@ -81,6 +81,16 @@ module.exports = {
   },
   overrides: [
     {
+      // Disable TypeScript project for JS config files
+      files: ['*.js', '*.cjs'],
+      parserOptions: {
+        project: null,
+      },
+      rules: {
+        '@typescript-eslint/no-var-requires': 'off',
+      },
+    },
+    {
       files: ['*.test.ts', '*.test.tsx', '**/__tests__/**'],
       rules: {
         '@typescript-eslint/no-explicit-any': 'off',
