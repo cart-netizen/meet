@@ -50,9 +50,9 @@ const MOSCOW_REGION: Region = {
 // ============================================================================
 
 export default function EventsMapScreen() {
-  const events = useEventsStore((state) => state.events);
-  const fetchEvents = useEventsStore((state) => state.fetchEvents);
-  const userLocation = useLocationStore((state) => state.location);
+  const events = useEventsStore((state) => state.discoveryEvents);
+  const fetchEvents = useEventsStore((state) => state.fetchDiscoveryEvents);
+  const userLocation = useLocationStore((state) => state.lastKnownLocation);
   const getCategoryById = useCategoriesStore((state) => state.getCategoryById);
 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -84,7 +84,7 @@ export default function EventsMapScreen() {
     async function loadEvents() {
       setIsLoading(true);
       try {
-        await fetchEvents();
+        await fetchEvents(userLocation ?? undefined, true);
       } catch (error) {
         console.error('Failed to fetch events:', error);
       } finally {
@@ -92,11 +92,11 @@ export default function EventsMapScreen() {
       }
     }
     void loadEvents();
-  }, [fetchEvents]);
+  }, [fetchEvents, userLocation]);
 
   // Filter events with valid locations
   const eventsWithLocation = useMemo(
-    () => (events ?? []).filter((event) => event.location != null),
+    () => (events ?? []).filter((event: Event) => event.location != null),
     [events]
   );
 
@@ -112,10 +112,10 @@ export default function EventsMapScreen() {
 
     if (eventsWithLocation.length > 0) {
       const avgLat =
-        eventsWithLocation.reduce((sum, e) => sum + e.location!.latitude, 0) /
+        eventsWithLocation.reduce((sum: number, e: Event) => sum + e.location!.latitude, 0) /
         eventsWithLocation.length;
       const avgLon =
-        eventsWithLocation.reduce((sum, e) => sum + e.location!.longitude, 0) /
+        eventsWithLocation.reduce((sum: number, e: Event) => sum + e.location!.longitude, 0) /
         eventsWithLocation.length;
 
       return {
@@ -201,7 +201,7 @@ export default function EventsMapScreen() {
           showsMyLocationButton
           showsCompass
         >
-          {eventsWithLocation.map((event) => {
+          {eventsWithLocation.map((event: Event) => {
             const category = getCategoryById(event.categoryId);
             return (
               <MarkerComponent
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: THEME_COLORS.surfaceVariant,
+    backgroundColor: THEME_COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
