@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   mapToggle: {
     paddingVertical: 14,
-    backgroundColor: THEME_COLORS.surfaceVariant,
+    backgroundColor: THEME_COLORS.background,
     borderRadius: 12,
     alignItems: 'center',
   },
