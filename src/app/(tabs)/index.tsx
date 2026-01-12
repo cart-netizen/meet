@@ -66,27 +66,19 @@ export default function DiscoveryScreen() {
   const setSelectedCity = useLocationStore((state) => state.setSelectedCity);
   const categories = useCategoriesStore(selectCategories);
 
-  // Initial fetch
+  // Initial fetch - get user location
   useEffect(() => {
-    const init = async () => {
-      await getCurrentLocation();
-    };
-    init();
-  }, []);
+    getCurrentLocation();
+  }, [getCurrentLocation]);
 
-  // Set city filter when city changes and fetch events
+  // Fetch events when city changes - use city's location to avoid race condition
   useEffect(() => {
     if (city) {
       setFilters({ city: city.name });
+      // Use city.location instead of GPS location to ensure consistency
+      fetchEvents(city.location, true);
     }
-  }, [city?.name]);
-
-  // Refetch on filter change
-  useEffect(() => {
-    if (filters.city) {
-      fetchEvents(location ?? undefined, true);
-    }
-  }, [filters]);
+  }, [city?.name, city?.location, setFilters, fetchEvents]);
 
   const handleRefresh = useCallback(async () => {
     await fetchEvents(location ?? undefined, true);
