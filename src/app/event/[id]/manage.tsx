@@ -20,14 +20,14 @@ import { ru } from 'date-fns/locale';
 import { Avatar, Badge, Button } from '@/components/ui';
 import { THEME_COLORS } from '@/constants';
 import { supabase } from '@/services/supabase/client';
-import { getEventById } from '@/services/supabase/events.service';
-import type { Event, Participant } from '@/types';
+import { getEventById, getEventParticipants } from '@/services/supabase/events.service';
+import type { Event, EventParticipant } from '@/types';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-type ParticipantStatus = 'pending' | 'confirmed' | 'cancelled' | 'attended' | 'no_show';
+type ParticipantStatus = 'pending' | 'approved' | 'declined' | 'cancelled' | 'attended' | 'no_show';
 
 // ============================================================================
 // Component
@@ -37,7 +37,7 @@ export default function EventManageScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [event, setEvent] = useState<Event | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<EventParticipant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all');
 
@@ -48,10 +48,16 @@ export default function EventManageScreen() {
 
       setIsLoading(true);
       try {
-        const data = await getEventById(id);
-        if (data) {
-          setEvent(data.event);
-          setParticipants(data.participants);
+        const [eventResult, participantsResult] = await Promise.all([
+          getEventById(id),
+          getEventParticipants(id),
+        ]);
+
+        if (eventResult.event) {
+          setEvent(eventResult.event);
+        }
+        if (participantsResult.participants) {
+          setParticipants(participantsResult.participants);
         }
       } catch (error) {
         console.error('Failed to load event:', error);
@@ -76,7 +82,7 @@ export default function EventManageScreen() {
     async (participantId: string, status: ParticipantStatus) => {
       try {
         const { error } = await supabase
-          .from('participants')
+          .from('event_participants')
           .update({ status })
           .eq('id', participantId);
 
@@ -85,15 +91,15 @@ export default function EventManageScreen() {
         // Update local state
         setParticipants((prev) =>
           prev.map((p) =>
-            p.id === participantId ? { ...p, status } : p
+            p.id === participantId ? { ...p, status: status as EventParticipant['status'] } : p
           )
         );
 
         // Update event participant count if needed
-        if (status === 'confirmed' || status === 'cancelled') {
-          const data = await getEventById(id!);
-          if (data) {
-            setEvent(data.event);
+        if (status === 'approved' || status === 'cancelled') {
+          const eventResult = await getEventById(id!);
+          if (eventResult.event) {
+            setEvent(eventResult.event);
           }
         }
       } catch (error) {
@@ -106,7 +112,7 @@ export default function EventManageScreen() {
 
   // Approve participant
   const handleApprove = useCallback(
-    (participant: Participant) => {
+    (participant: EventParticipant) => {
       Alert.alert(
         'Подтвердить участие',
         `Подтвердить участие ${participant.user?.displayName}?`,
@@ -114,7 +120,7 @@ export default function EventManageScreen() {
           { text: 'Отмена', style: 'cancel' },
           {
             text: 'Подтвердить',
-            onPress: () => updateParticipantStatus(participant.id, 'confirmed'),
+            onPress: () => updateParticipantStatus(participant.id, 'approved'),
           },
         ]
       );
@@ -124,7 +130,7 @@ export default function EventManageScreen() {
 
   // Reject participant
   const handleReject = useCallback(
-    (participant: Participant) => {
+    (participant: EventParticipant) => {
       Alert.alert(
         'Отклонить заявку',
         `Отклонить заявку ${participant.user?.displayName}?`,
@@ -143,7 +149,7 @@ export default function EventManageScreen() {
 
   // Mark attendance
   const handleMarkAttendance = useCallback(
-    (participant: Participant, attended: boolean) => {
+    (participant: EventParticipant, attended: boolean) => {
       updateParticipantStatus(
         participant.id,
         attended ? 'attended' : 'no_show'
@@ -158,7 +164,7 @@ export default function EventManageScreen() {
 
   // Render participant item
   const renderParticipant = useCallback(
-    ({ item }: { item: Participant }) => {
+    ({ item }: { item: EventParticipant }) => {
       const statusBadge = getStatusBadge(item.status);
 
       return (
@@ -208,7 +214,7 @@ export default function EventManageScreen() {
               </>
             )}
 
-            {item.status === 'confirmed' && eventHasStarted && !eventHasEnded && (
+            {item.status === 'approved' && eventHasStarted && !eventHasEnded && (
               <>
                 <Pressable
                   style={[styles.actionButton, styles.actionButtonAttended]}
@@ -225,7 +231,7 @@ export default function EventManageScreen() {
               </>
             )}
 
-            {item.status === 'confirmed' && eventHasEnded && (
+            {item.status === 'approved' && eventHasEnded && (
               <Pressable
                 style={[styles.actionButton, styles.actionButtonNoShow]}
                 onPress={() => handleMarkAttendance(item, false)}
@@ -355,7 +361,7 @@ export default function EventManageScreen() {
             variant="outline"
             onPress={() => {
               const noShowParticipants = participants.filter(
-                (p) => p.status === 'confirmed'
+                (p) => p.status === 'approved'
               );
               if (noShowParticipants.length === 0) {
                 Alert.alert('Готово', 'Все участники отмечены');
@@ -397,8 +403,10 @@ function getStatusBadge(
   switch (status) {
     case 'pending':
       return { variant: 'warning', label: 'Ожидает' };
-    case 'confirmed':
+    case 'approved':
       return { variant: 'success', label: 'Подтверждён' };
+    case 'declined':
+      return { variant: 'error', label: 'Отклонён' };
     case 'cancelled':
       return { variant: 'secondary', label: 'Отменён' };
     case 'attended':
