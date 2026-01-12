@@ -168,8 +168,11 @@ export const useEventsStore = create<EventsState>()(
           userLocation
         );
 
+        console.log('fetchDiscoveryEvents result:', result.data.length, 'events');
+
         set((state) => {
           state.discoveryEvents = result.data;
+          console.log('Store updated with', result.data.length, 'events');
           state.discoveryPagination = {
             page: result.page,
             totalPages: result.totalPages,

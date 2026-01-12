@@ -329,12 +329,14 @@ async function searchEventsNearby(
     return searchEventsFallback({ ...filters, city: undefined }, pagination);
   }
 
-  console.log('searchEventsNearby RPC returned:', data?.length ?? 0, 'events');
+  console.log('searchEventsNearby RPC returned:', data?.length ?? 0, 'events', JSON.stringify(data));
 
   // For nearby search, we need a separate count query
   const events = (data ?? []).map((row: Record<string, unknown>) =>
     transformEventFromRpc(row)
   );
+
+  console.log('searchEventsNearby transformed events:', events.length, events.map(e => ({ id: e.id, title: e.title })));
 
   return {
     data: events,
