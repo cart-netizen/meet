@@ -19,8 +19,8 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 import { Badge } from '@/components/ui';
-import { getCategoryById, THEME_COLORS } from '@/constants';
-import { useEventsStore, useLocationStore } from '@/stores';
+import { THEME_COLORS } from '@/constants';
+import { useCategoriesStore, useEventsStore, useLocationStore } from '@/stores';
 import type { Event } from '@/types';
 
 // ============================================================================
@@ -53,6 +53,7 @@ export default function EventsMapScreen() {
   const events = useEventsStore((state) => state.events);
   const fetchEvents = useEventsStore((state) => state.fetchEvents);
   const userLocation = useLocationStore((state) => state.location);
+  const getCategoryById = useCategoriesStore((state) => state.getCategoryById);
 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isLoading, setIsLoading] = useState(true);

@@ -24,8 +24,14 @@ import { ru } from 'date-fns/locale';
 
 import { Button, EmailVerificationBanner, Input } from '@/components/ui';
 import { LocationPicker } from '@/components/map';
-import { ALL_CATEGORIES_FLAT, THEME_COLORS } from '@/constants';
-import { selectProfile, useAuthStore, useLocationStore } from '@/stores';
+import { THEME_COLORS } from '@/constants';
+import {
+  selectCategoriesFlat,
+  selectProfile,
+  useAuthStore,
+  useCategoriesStore,
+  useLocationStore,
+} from '@/stores';
 import { createEvent } from '@/services/supabase/events.service';
 import { resendVerificationEmail } from '@/services/supabase/auth.service';
 import type { CreateEventData, GeoPoint } from '@/types';
@@ -60,6 +66,7 @@ export default function CreateEventScreen() {
   const session = useAuthStore((state) => state.session);
   const user = useAuthStore((state) => state.user);
   const userLocation = useLocationStore((state) => state.location);
+  const categoriesFlat = useCategoriesStore(selectCategoriesFlat);
 
   const [currentStep, setCurrentStep] = useState<WizardStep>('category');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -294,7 +301,7 @@ export default function CreateEventScreen() {
               Какой тип встречи вы хотите организовать?
             </Text>
             <View style={styles.categoriesGrid}>
-              {ALL_CATEGORIES_FLAT.map((category) => (
+              {categoriesFlat.map((category) => (
                 <Pressable
                   key={category.id}
                   style={[

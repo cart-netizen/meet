@@ -13,7 +13,7 @@ import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import * as Linking from 'expo-linking';
 
 import { THEME_COLORS } from '@/constants';
-import { useAuthStore } from '@/stores';
+import { useAuthStore, useCategoriesStore } from '@/stores';
 import { validateEnv } from '@/config/env';
 import { supabase } from '@/services/supabase/client';
 
@@ -42,6 +42,8 @@ const theme = {
 export default function RootLayout() {
   const initialize = useAuthStore((state) => state.initialize);
   const isInitialized = useAuthStore((state) => state.isInitialized);
+  const initializeCategories = useCategoriesStore((state) => state.initialize);
+  const categoriesInitialized = useCategoriesStore((state) => state.isInitialized);
 
   useEffect(() => {
     // Validate environment
@@ -50,8 +52,9 @@ export default function RootLayout() {
       console.warn('Missing environment variables:', missing);
     }
 
-    // Initialize auth
+    // Initialize auth and categories in parallel
     initialize();
+    initializeCategories();
 
     // Handle deep links for auth callbacks
     const handleDeepLink = async (event: { url: string }) => {
@@ -95,9 +98,9 @@ export default function RootLayout() {
     return () => {
       subscription.remove();
     };
-  }, [initialize]);
+  }, [initialize, initializeCategories]);
 
-  if (!isInitialized) {
+  if (!isInitialized || !categoriesInitialized) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={THEME_COLORS.primary} />

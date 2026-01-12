@@ -9,7 +9,8 @@ import { format, isToday, isTomorrow } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 import { Avatar, Badge } from '@/components/ui';
-import { getCategoryById, THEME_COLORS } from '@/constants';
+import { THEME_COLORS } from '@/constants';
+import { useCategoriesStore } from '@/stores';
 import type { Event, GeoPoint } from '@/types';
 
 // ============================================================================
@@ -31,6 +32,7 @@ export const EventCard = memo(function EventCard({
   userLocation,
   onPress,
 }: EventCardProps) {
+  const getCategoryById = useCategoriesStore((state) => state.getCategoryById);
   const category = event.category ?? getCategoryById(event.categoryId);
   const spotsLeft =
     event.maxParticipants !== null
