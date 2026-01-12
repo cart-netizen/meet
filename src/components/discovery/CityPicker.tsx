@@ -142,8 +142,10 @@ export function CityPicker({
             data={filteredCities}
             renderItem={renderCity}
             keyExtractor={(item) => item.id}
+            extraData={searchQuery}
             style={styles.list}
             contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>Город не найден</Text>
