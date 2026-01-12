@@ -95,7 +95,7 @@ export default function EventsMapScreen() {
 
   // Filter events with valid locations
   const eventsWithLocation = useMemo(
-    () => events.filter((event) => event.location != null),
+    () => (events ?? []).filter((event) => event.location != null),
     [events]
   );
 

@@ -63,18 +63,26 @@ export default function EventDetailScreen() {
           getEventParticipants(id),
         ]);
 
-        if (eventResult.event) {
-          setEvent(eventResult.event);
-          // Use organizer from event data (fetched via join)
-          if (eventResult.event.organizer) {
-            setOrganizer({
-              id: eventResult.event.organizer.id,
-              displayName: eventResult.event.organizer.displayName,
-              avatarUrl: eventResult.event.organizer.avatarUrl ?? null,
-              rating: eventResult.event.organizer.rating,
-              eventsOrganized: eventResult.event.organizer.eventsOrganized ?? 0,
-            } as Profile);
-          }
+        // Check for errors
+        if (eventResult.error || !eventResult.event) {
+          Alert.alert(
+            'Ошибка',
+            eventResult.error?.message ?? 'Встреча не найдена',
+            [{ text: 'OK', onPress: () => router.back() }]
+          );
+          return;
+        }
+
+        setEvent(eventResult.event);
+        // Use organizer from event data (fetched via join)
+        if (eventResult.event.organizer) {
+          setOrganizer({
+            id: eventResult.event.organizer.id,
+            displayName: eventResult.event.organizer.displayName,
+            avatarUrl: eventResult.event.organizer.avatarUrl ?? null,
+            rating: eventResult.event.organizer.rating,
+            eventsOrganized: eventResult.event.organizer.eventsOrganized ?? 0,
+          } as Profile);
         }
 
         if (participantsResult.participants) {

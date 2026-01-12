@@ -211,12 +211,17 @@ export default function CreateEventScreen() {
         requiresApproval: formData.requiresApproval,
       };
 
-      const event = await createEvent(eventData);
+      const result = await createEvent(eventData);
+
+      if (result.error || !result.event) {
+        Alert.alert('Ошибка', result.error?.message ?? 'Не удалось создать встречу');
+        return;
+      }
 
       Alert.alert('Готово!', 'Встреча успешно создана', [
         {
           text: 'Посмотреть',
-          onPress: () => router.replace(`/event/${event.id}`),
+          onPress: () => router.replace(`/event/${result.event!.id}`),
         },
       ]);
     } catch (error) {

@@ -134,20 +134,18 @@ export function LocationPicker({
   return (
     <View style={styles.container}>
       {/* Address Input */}
-      <View style={styles.inputContainer}>
-        <Input
-          value={address}
-          onChangeText={onAddressChange}
-          placeholder="Введите адрес..."
-        />
+      <Input
+        value={address}
+        onChangeText={onAddressChange}
+        placeholder="Введите адрес..."
+      />
 
-        {/* Toggle map button */}
-        <Pressable style={styles.mapToggle} onPress={handleToggleMap}>
-          <Text style={styles.mapToggleText}>
-            {showMap ? '🗺️ Скрыть' : '🗺️ Карта'}
-          </Text>
-        </Pressable>
-      </View>
+      {/* Toggle map button */}
+      <Pressable style={styles.mapToggle} onPress={handleToggleMap}>
+        <Text style={styles.mapToggleText}>
+          {showMap ? '🗺️ Скрыть карту' : '🗺️ Показать на карте'}
+        </Text>
+      </Pressable>
 
       {/* Suggestions List */}
       {suggestions.length > 0 && (
@@ -234,20 +232,16 @@ const styles = StyleSheet.create({
   container: {
     gap: 12,
   },
-  inputContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
   mapToggle: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 14,
     backgroundColor: THEME_COLORS.surfaceVariant,
     borderRadius: 12,
+    alignItems: 'center',
   },
   mapToggleText: {
-    fontSize: 14,
+    fontSize: 15,
     color: THEME_COLORS.text,
+    fontWeight: '500',
   },
   suggestions: {
     backgroundColor: THEME_COLORS.surface,
