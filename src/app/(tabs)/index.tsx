@@ -58,6 +58,8 @@ export default function DiscoveryScreen() {
   const setFilters = useEventsStore((state) => state.setDiscoveryFilters);
   const resetFilters = useEventsStore((state) => state.resetDiscoveryFilters);
 
+  console.log('DiscoveryScreen render - events:', events.length, 'isLoading:', isLoading);
+
   const location = useLocationStore(selectEffectiveLocation);
   const city = useLocationStore(selectEffectiveCity);
   const getCurrentLocation = useLocationStore((state) => state.getCurrentLocation);
