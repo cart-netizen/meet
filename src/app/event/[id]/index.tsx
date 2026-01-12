@@ -20,8 +20,8 @@ import { ru } from 'date-fns/locale';
 
 import { Avatar, Badge, Button } from '@/components/ui';
 import { EventMap } from '@/components/map';
-import { getCategoryById, THEME_COLORS } from '@/constants';
-import { selectProfile, useAuthStore, useEventsStore } from '@/stores';
+import { THEME_COLORS } from '@/constants';
+import { selectProfile, useAuthStore, useCategoriesStore, useEventsStore } from '@/stores';
 import { getEventById, getEventParticipants, joinEvent, leaveEvent } from '@/services/supabase/events.service';
 import { scheduleEventReminder, cancelEventNotifications } from '@/services/notifications/push.service';
 import type { Event, Participant, Profile } from '@/types';
@@ -34,6 +34,7 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const profile = useAuthStore(selectProfile);
   const session = useAuthStore((state) => state.session);
+  const getCategoryById = useCategoriesStore((state) => state.getCategoryById);
 
   const [event, setEvent] = useState<Event | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);

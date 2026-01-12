@@ -21,16 +21,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Badge } from '@/components/ui';
 import { EventCard } from '@/components/events/EventCard';
 import { FilterSheet } from '@/components/discovery/FilterSheet';
-import { ACTIVITY_CATEGORIES, SEARCH_CONFIG, THEME_COLORS } from '@/constants';
+import { SEARCH_CONFIG, THEME_COLORS } from '@/constants';
 import {
+  selectCategories,
   selectDiscoveryEvents,
   selectDiscoveryFilters,
+  selectEffectiveCity,
+  selectEffectiveLocation,
   selectHasMoreEvents,
   selectIsLoadingDiscovery,
+  useCategoriesStore,
   useEventsStore,
   useLocationStore,
-  selectEffectiveLocation,
-  selectEffectiveCity,
 } from '@/stores';
 import type { Event, EventFilters } from '@/types';
 
@@ -56,6 +58,7 @@ export default function DiscoveryScreen() {
   const location = useLocationStore(selectEffectiveLocation);
   const city = useLocationStore(selectEffectiveCity);
   const getCurrentLocation = useLocationStore((state) => state.getCurrentLocation);
+  const categories = useCategoriesStore(selectCategories);
 
   // Initial fetch
   useEffect(() => {
@@ -182,7 +185,7 @@ export default function DiscoveryScreen() {
               Все
             </Text>
           </Pressable>
-          {ACTIVITY_CATEGORIES.map((category) => {
+          {categories.map((category) => {
             const isSelected = filters.categoryId === category.id;
             return (
               <Pressable

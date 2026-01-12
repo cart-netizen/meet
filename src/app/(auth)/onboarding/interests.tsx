@@ -15,8 +15,8 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui';
-import { ACTIVITY_CATEGORIES, PROFILE_CONFIG, THEME_COLORS } from '@/constants';
-import { useAuthStore } from '@/stores';
+import { PROFILE_CONFIG, THEME_COLORS } from '@/constants';
+import { selectCategories, useAuthStore, useCategoriesStore } from '@/stores';
 import { updateInterests } from '@/services/supabase/profiles.service';
 
 // ============================================================================
@@ -27,6 +27,7 @@ export default function InterestsScreen() {
   const [selected, setSelected] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const categories = useCategoriesStore(selectCategories);
   const setOnboardingCompleted = useAuthStore((state) => state.setOnboardingCompleted);
   const refreshProfile = useAuthStore((state) => state.refreshProfile);
   const setPendingInterests = useAuthStore((state) => state.setPendingInterests);
@@ -101,7 +102,7 @@ export default function InterestsScreen() {
         contentContainerStyle={styles.categoriesContainer}
         showsVerticalScrollIndicator={false}
       >
-        {ACTIVITY_CATEGORIES.map((category) => {
+        {categories.map((category) => {
           const isSelected = selected.includes(category.id);
 
           return (

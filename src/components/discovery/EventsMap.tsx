@@ -13,8 +13,9 @@ import {
   Platform,
 } from 'react-native';
 
-import { getCategoryById, THEME_COLORS } from '@/constants';
+import { THEME_COLORS } from '@/constants';
 import { calculateBounds } from '@/services/location/yandex-maps.service';
+import { useCategoriesStore } from '@/stores';
 import type { Event, GeoPoint } from '@/types';
 
 // ============================================================================
@@ -53,6 +54,7 @@ export const EventsMap = memo(function EventsMap({
   onMapPress,
   selectedEventId,
 }: EventsMapProps) {
+  const getCategoryById = useCategoriesStore((state) => state.getCategoryById);
   const [mapRegion, setMapRegion] = useState(() => {
     const allPoints = events.map((e) => e.location);
     if (userLocation) {

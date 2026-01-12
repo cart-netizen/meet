@@ -1,10 +1,22 @@
 /**
  * Activity categories for MeetUp.local
- * Organized in a hierarchical structure for easy filtering
+ *
+ * IMPORTANT: This file serves as FALLBACK data only.
+ * The primary source of categories is the Supabase database.
+ * Use useCategoriesStore for accessing categories in components.
+ *
+ * These static categories are used when:
+ * - Database is unavailable
+ * - Network errors occur
+ * - During initial app load before DB fetch completes
  */
 
 import type { ActivityCategory } from '@/types';
 
+/**
+ * Fallback categories with string IDs
+ * Note: Database uses UUIDs, this is only for offline fallback
+ */
 export const ACTIVITY_CATEGORIES: ActivityCategory[] = [
   {
     id: 'board-games',
@@ -134,73 +146,3 @@ export const ACTIVITY_CATEGORIES: ActivityCategory[] = [
     ],
   },
 ];
-
-/**
- * Flattened list of all categories (including subcategories)
- * Useful for dropdowns and search
- */
-export const ALL_CATEGORIES_FLAT: ActivityCategory[] = ACTIVITY_CATEGORIES.reduce<ActivityCategory[]>(
-  (acc, category) => {
-    const { subcategories, ...parent } = category;
-    acc.push(parent);
-    if (subcategories) {
-      acc.push(...subcategories);
-    }
-    return acc;
-  },
-  []
-);
-
-/**
- * Map for O(1) category lookup by ID
- */
-export const CATEGORIES_BY_ID: Map<string, ActivityCategory> = new Map(
-  ALL_CATEGORIES_FLAT.map((cat) => [cat.id, cat])
-);
-
-/**
- * Map for O(1) category lookup by slug
- */
-export const CATEGORIES_BY_SLUG: Map<string, ActivityCategory> = new Map(
-  ALL_CATEGORIES_FLAT.map((cat) => [cat.slug, cat])
-);
-
-/**
- * Get category by ID with O(1) lookup
- */
-export const getCategoryById = (id: string): ActivityCategory | undefined => {
-  return CATEGORIES_BY_ID.get(id);
-};
-
-/**
- * Get category by slug with O(1) lookup
- */
-export const getCategoryBySlug = (slug: string): ActivityCategory | undefined => {
-  return CATEGORIES_BY_SLUG.get(slug);
-};
-
-/**
- * Get parent category for a subcategory
- */
-export const getParentCategory = (categoryId: string): ActivityCategory | undefined => {
-  const category = getCategoryById(categoryId);
-  if (!category?.parentId) {
-    return undefined;
-  }
-  return getCategoryById(category.parentId);
-};
-
-/**
- * Get all subcategories for a parent category
- */
-export const getSubcategories = (parentId: string): ActivityCategory[] => {
-  return ALL_CATEGORIES_FLAT.filter((cat) => cat.parentId === parentId);
-};
-
-/**
- * Check if category is a top-level category
- */
-export const isTopLevelCategory = (categoryId: string): boolean => {
-  const category = getCategoryById(categoryId);
-  return category?.parentId === null;
-};
