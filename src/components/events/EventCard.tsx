@@ -47,7 +47,7 @@ export const EventCard = memo(function EventCard({
 
   return (
     <Pressable style={styles.container} onPress={onPress}>
-      {/* Category and Date */}
+      {/* Category and Date/Price */}
       <View style={styles.topRow}>
         {category && (
           <Badge
@@ -62,7 +62,14 @@ export const EventCard = memo(function EventCard({
             </Text>
           </Badge>
         )}
-        <Text style={styles.date}>{formattedDate}</Text>
+        <View style={styles.dateAndFee}>
+          <Text style={styles.date}>{formattedDate}</Text>
+          {event.entryFee > 0 && (
+            <View style={styles.feeBadge}>
+              <Text style={styles.feeText}>{event.entryFee} ₽</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Title */}
@@ -127,13 +134,6 @@ export const EventCard = memo(function EventCard({
         </View>
       </View>
 
-      {/* Entry Fee Badge */}
-      {event.entryFee > 0 && (
-        <View style={styles.feeBadge}>
-          <Text style={styles.feeText}>{event.entryFee} ₽</Text>
-        </View>
-      )}
-
       {/* Requires Approval Badge */}
       {event.requiresApproval && (
         <View style={styles.approvalBadge}>
@@ -195,9 +195,12 @@ const styles = StyleSheet.create({
   },
   topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  dateAndFee: {
+    alignItems: 'flex-end',
   },
   date: {
     fontSize: 13,
@@ -280,13 +283,11 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   feeBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
     backgroundColor: `${THEME_COLORS.secondary}20`,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    marginTop: 4,
   },
   feeText: {
     fontSize: 12,
