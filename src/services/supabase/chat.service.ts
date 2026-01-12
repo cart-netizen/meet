@@ -295,7 +295,7 @@ export function subscribeToMessages(
             replyTo:event_messages!reply_to_id (
               id,
               content,
-              sender_id
+              user_id
             )
           `)
           .eq('id', (payload.new as { id: string }).id)
@@ -340,7 +340,7 @@ export function subscribeToMessages(
             replyTo:event_messages!reply_to_id (
               id,
               content,
-              sender_id
+              user_id
             )
           `)
           .eq('id', (payload.new as { id: string }).id)
