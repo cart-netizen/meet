@@ -6,7 +6,6 @@
 import { useCallback, useState } from 'react';
 import {
   Alert,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,11 +20,7 @@ import { ru } from 'date-fns/locale';
 import { Badge, Button } from '@/components/ui';
 import { SUBSCRIPTION_CONFIG, THEME_COLORS } from '@/constants';
 import { selectProfile, useAuthStore } from '@/stores';
-import {
-  createSubscriptionPayment,
-  getBindings,
-  isStubMode,
-} from '@/services/payments/alfa-acquiring.service';
+import { updateProfile } from '@/services/supabase/profiles.service';
 import type { SubscriptionType } from '@/types';
 
 // ============================================================================
@@ -48,84 +43,50 @@ export default function SubscriptionScreen() {
     setSelectedPlan(plan);
   }, [currentSubscription]);
 
-  // Handle purchase
+  // Refresh profile action
+  const refreshProfile = useAuthStore((state) => state.fetchProfile);
+
+  // Handle purchase - TEST MODE: directly activate subscription
   const handlePurchase = useCallback(async () => {
     if (!selectedPlan) return;
 
     setIsProcessing(true);
     try {
-      // Check if we have saved cards
-      const bindings = await getBindings(profile?.id ?? '');
+      // TEST MODE: Directly activate subscription without payment
+      const expiresAt = new Date();
+      expiresAt.setMonth(expiresAt.getMonth() + 1); // 1 month subscription
 
-      if (bindings.length > 0) {
-        // Show card selection dialog (simplified - use first card)
-        Alert.alert(
-          'Оплата',
-          `Использовать карту ${bindings[0].maskedPan}?`,
-          [
-            { text: 'Отмена', style: 'cancel' },
-            {
-              text: 'Оплатить',
-              onPress: async () => {
-                // In production, use createRecurringPayment with bindingId
-                await processNewPayment();
-              },
-            },
-            {
-              text: 'Другая карта',
-              onPress: () => processNewPayment(),
-            },
-          ]
-        );
-      } else {
-        await processNewPayment();
+      const { error } = await updateProfile({
+        subscriptionType: selectedPlan,
+        subscriptionExpiresAt: expiresAt.toISOString(),
+      });
+
+      if (error) {
+        throw error;
       }
+
+      // Refresh profile to get updated subscription
+      await refreshProfile();
+
+      Alert.alert(
+        'Готово!',
+        `Подписка "${selectedPlan === 'organizer' ? 'Организатор' : 'Участник'}" активирована (тестовый режим)`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              router.replace('/(tabs)/profile');
+            },
+          },
+        ]
+      );
     } catch (error) {
-      console.error('Payment failed:', error);
-      Alert.alert('Ошибка', 'Не удалось создать платёж. Попробуйте позже.');
+      console.error('Subscription error:', error);
+      Alert.alert('Ошибка', 'Не удалось активировать подписку');
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedPlan, profile?.id]);
-
-  // Process new payment
-  const processNewPayment = async () => {
-    if (!selectedPlan) return;
-
-    try {
-      const { formUrl, paymentId } = await createSubscriptionPayment(selectedPlan, {
-        email: profile?.email,
-      });
-
-      if (isStubMode()) {
-        // In stub mode, simulate successful payment
-        Alert.alert(
-          'Тестовый режим',
-          'Оплата прошла успешно (тестовый режим)',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Refresh profile to get updated subscription
-                router.replace('/(tabs)/profile');
-              },
-            },
-          ]
-        );
-      } else {
-        // Open payment form in browser
-        const canOpen = await Linking.canOpenURL(formUrl);
-        if (canOpen) {
-          await Linking.openURL(formUrl);
-        } else {
-          Alert.alert('Ошибка', 'Не удалось открыть страницу оплаты');
-        }
-      }
-    } catch (error) {
-      console.error('Payment error:', error);
-      Alert.alert('Ошибка', 'Не удалось создать платёж');
-    }
-  };
+  }, [selectedPlan, refreshProfile]);
 
   // Handle cancel subscription
   const handleCancelSubscription = useCallback(() => {
