@@ -4,6 +4,7 @@
  */
 
 import { ENV } from '@/config/env';
+import { getNearestCity, RUSSIAN_CITIES } from '@/constants/cities';
 import type { GeoPoint } from '@/types';
 
 // ============================================================================
@@ -193,38 +194,36 @@ export async function getPlaceSuggestions(
 
   // Return mock data in development without API key
   if (!apiKey) {
-    const mockSuggestions: PlaceSuggestion[] = [
-      {
-        title: 'Тверская улица, 1',
-        subtitle: 'Москва, Россия',
-        address: 'Москва, Тверская улица, 1',
-        location: { latitude: 55.7558, longitude: 37.6173 },
-      },
-      {
-        title: 'Невский проспект, 28',
-        subtitle: 'Санкт-Петербург, Россия',
-        address: 'Санкт-Петербург, Невский проспект, 28',
-        location: { latitude: 59.9343, longitude: 30.3351 },
-      },
-      {
-        title: 'Парк Горького',
-        subtitle: 'Москва, Крымский Вал, 9',
-        address: 'Москва, Крымский Вал, 9',
-        location: { latitude: 55.7312, longitude: 37.6030 },
-      },
-      {
-        title: 'ВДНХ',
-        subtitle: 'Москва, проспект Мира, 119',
-        address: 'Москва, проспект Мира, 119',
-        location: { latitude: 55.8262, longitude: 37.6377 },
-      },
-      {
-        title: 'Красная площадь',
-        subtitle: 'Москва, Россия',
-        address: 'Москва, Красная площадь',
-        location: { latitude: 55.7539, longitude: 37.6208 },
-      },
+    // Determine city based on user location or default to Moscow
+    const city = userLocation
+      ? getNearestCity(userLocation) ?? RUSSIAN_CITIES[0]
+      : RUSSIAN_CITIES[0];
+
+    const cityName = city?.name ?? 'Москва';
+    const cityLat = city?.location.latitude ?? 55.7558;
+    const cityLon = city?.location.longitude ?? 37.6173;
+
+    // Generate mock addresses for the determined city
+    const mockAddresses = [
+      { street: 'Центральная улица', num: '1' },
+      { street: 'Ленина проспект', num: '15' },
+      { street: 'Советская улица', num: '42' },
+      { street: 'Мира улица', num: '7' },
+      { street: 'Парковая улица', num: '23' },
+      { street: 'Кирова улица', num: '10' },
+      { street: 'Гагарина улица', num: '5' },
+      { street: 'Пушкина улица', num: '18' },
     ];
+
+    const mockSuggestions: PlaceSuggestion[] = mockAddresses.map((addr, idx) => ({
+      title: `${addr.street}, ${addr.num}`,
+      subtitle: `${cityName}, Россия`,
+      address: `${cityName}, ${addr.street}, ${addr.num}`,
+      location: {
+        latitude: cityLat + (Math.random() - 0.5) * 0.02,
+        longitude: cityLon + (Math.random() - 0.5) * 0.02,
+      },
+    }));
 
     // Filter by query
     const lowerQuery = query.toLowerCase();
@@ -232,7 +231,8 @@ export async function getPlaceSuggestions(
       (s) =>
         s.title.toLowerCase().includes(lowerQuery) ||
         s.address.toLowerCase().includes(lowerQuery) ||
-        s.subtitle.toLowerCase().includes(lowerQuery)
+        s.subtitle.toLowerCase().includes(lowerQuery) ||
+        cityName.toLowerCase().includes(lowerQuery)
     );
   }
 
