@@ -81,13 +81,23 @@ module.exports = {
   },
   overrides: [
     {
-      // Disable TypeScript project for JS config files
+      // Disable TypeScript project and type-aware rules for JS config files
       files: ['*.js', '*.cjs'],
       parserOptions: {
         project: null,
       },
       rules: {
         '@typescript-eslint/no-var-requires': 'off',
+        '@typescript-eslint/prefer-nullish-coalescing': 'off',
+        '@typescript-eslint/prefer-optional-chain': 'off',
+        '@typescript-eslint/no-floating-promises': 'off',
+        '@typescript-eslint/await-thenable': 'off',
+        '@typescript-eslint/no-misused-promises': 'off',
+        '@typescript-eslint/consistent-type-imports': 'off',
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+        '@typescript-eslint/no-unsafe-call': 'off',
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-unsafe-return': 'off',
       },
     },
     {
