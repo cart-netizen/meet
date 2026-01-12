@@ -171,8 +171,9 @@ export const useEventsStore = create<EventsState>()(
         console.log('fetchDiscoveryEvents result:', result.data.length, 'events');
 
         set((state) => {
-          state.discoveryEvents = result.data;
-          console.log('Store updated with', result.data.length, 'events');
+          // Create new array reference to ensure Zustand detects the change
+          state.discoveryEvents = [...result.data];
+          console.log('Store updated with', state.discoveryEvents.length, 'events');
           state.discoveryPagination = {
             page: result.page,
             totalPages: result.totalPages,

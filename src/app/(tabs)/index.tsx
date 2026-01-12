@@ -3,7 +3,7 @@
  * Main screen for discovering events nearby
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -66,18 +66,35 @@ export default function DiscoveryScreen() {
   const setSelectedCity = useLocationStore((state) => state.setSelectedCity);
   const categories = useCategoriesStore(selectCategories);
 
+  // Ref to track fetch timeout for debouncing
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Initial fetch - get user location
   useEffect(() => {
     getCurrentLocation();
   }, [getCurrentLocation]);
 
-  // Fetch events when city changes - use city's location to avoid race condition
+  // Fetch events when city changes - debounced to avoid race condition
   useEffect(() => {
     if (city) {
-      setFilters({ city: city.name });
-      // Use city.location instead of GPS location to ensure consistency
-      fetchEvents(city.location, true);
+      // Clear previous timeout to debounce rapid city changes
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+
+      // Debounce fetch by 300ms to let city stabilize after GPS update
+      fetchTimeoutRef.current = setTimeout(() => {
+        console.log('Fetching events for city:', city.name);
+        setFilters({ city: city.name });
+        fetchEvents(city.location, true);
+      }, 300);
     }
+
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
   }, [city?.name, city?.location, setFilters, fetchEvents]);
 
   const handleRefresh = useCallback(async () => {
