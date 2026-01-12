@@ -180,12 +180,14 @@ export const useEventsStore = create<EventsState>()(
           };
           state.isLoadingDiscovery = false;
           state.lastFetched.discovery = now;
-
-          // Update cache
-          for (const event of result.data) {
-            state.eventsCache.set(event.id, { event, timestamp: now });
-          }
+          // NOTE: Don't use Map.set() here - immer doesn't support it
         });
+
+        // Update cache OUTSIDE of immer set() - Map methods don't work inside immer
+        const cache = get().eventsCache;
+        for (const event of result.data) {
+          cache.set(event.id, { event, timestamp: now });
+        }
 
         // Log state AFTER set completes
         console.log('Store state after set:', get().discoveryEvents.length, 'events');
@@ -217,17 +219,18 @@ export const useEventsStore = create<EventsState>()(
           userLocation
         );
 
+        const cacheNow = Date.now();
         set((state) => {
           state.discoveryEvents = [...state.discoveryEvents, ...result.data];
           state.discoveryPagination.hasNextPage = result.hasNextPage;
           state.isLoadingDiscovery = false;
-
-          // Update cache
-          const now = Date.now();
-          for (const event of result.data) {
-            state.eventsCache.set(event.id, { event, timestamp: now });
-          }
         });
+
+        // Update cache OUTSIDE of immer set()
+        const cache = get().eventsCache;
+        for (const event of result.data) {
+          cache.set(event.id, { event, timestamp: cacheNow });
+        }
       } catch (error) {
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to load more events';
@@ -338,12 +341,13 @@ export const useEventsStore = create<EventsState>()(
           state.currentEvent = event;
           state.isParticipating = participating;
           state.isLoadingCurrentEvent = false;
-          state.eventsCache.set(eventId, { event, timestamp: now });
-
-          if (saved) {
-            state.savedEventIds.add(eventId);
-          }
         });
+
+        // Update cache and savedEventIds OUTSIDE of immer set()
+        get().eventsCache.set(eventId, { event, timestamp: now });
+        if (saved) {
+          get().savedEventIds.add(eventId);
+        }
 
         return event;
       } catch (error) {
@@ -366,8 +370,10 @@ export const useEventsStore = create<EventsState>()(
 
         set((state) => {
           state.myOrganizedEvents = [event, ...state.myOrganizedEvents];
-          state.eventsCache.set(event.id, { event, timestamp: Date.now() });
         });
+
+        // Update cache OUTSIDE of immer set()
+        get().eventsCache.set(event.id, { event, timestamp: Date.now() });
 
         return { event };
       } catch (error) {
@@ -388,9 +394,6 @@ export const useEventsStore = create<EventsState>()(
         }
 
         set((state) => {
-          // Update in cache
-          state.eventsCache.set(eventId, { event, timestamp: Date.now() });
-
           // Update in lists
           const orgIdx = state.myOrganizedEvents.findIndex((e) => e.id === eventId);
           if (orgIdx !== -1) {
@@ -401,6 +404,9 @@ export const useEventsStore = create<EventsState>()(
             state.currentEvent = event;
           }
         });
+
+        // Update cache OUTSIDE of immer set()
+        get().eventsCache.set(eventId, { event, timestamp: Date.now() });
 
         return {};
       } catch (error) {
@@ -497,28 +503,24 @@ export const useEventsStore = create<EventsState>()(
 
     // Save event to favorites (optimistic update)
     saveEventAction: async (eventId) => {
-      // Optimistic update
-      set((state) => {
-        state.savedEventIds.add(eventId);
-      });
+      // Optimistic update - Set.add() outside immer
+      get().savedEventIds.add(eventId);
 
       try {
         await saveEvent(eventId);
         // Refresh saved events
         get().fetchSavedEvents();
       } catch (error) {
-        // Rollback on error
-        set((state) => {
-          state.savedEventIds.delete(eventId);
-        });
+        // Rollback on error - Set.delete() outside immer
+        get().savedEventIds.delete(eventId);
       }
     },
 
     // Unsave event (optimistic update)
     unsaveEventAction: async (eventId) => {
-      // Optimistic update
+      // Optimistic update - Set.delete() outside immer
+      get().savedEventIds.delete(eventId);
       set((state) => {
-        state.savedEventIds.delete(eventId);
         state.savedEvents = state.savedEvents.filter((e) => e.id !== eventId);
       });
 
