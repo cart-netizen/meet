@@ -292,6 +292,7 @@ export async function searchEvents(
 
 /**
  * Search events near a location using PostGIS
+ * Falls back to regular query if RPC is not available
  */
 async function searchEventsNearby(
   location: GeoPoint,
@@ -315,15 +316,9 @@ async function searchEventsNearby(
   });
 
   if (error) {
-    return {
-      data: [],
-      total: 0,
-      page,
-      limit,
-      totalPages: 0,
-      hasNextPage: false,
-      hasPreviousPage: false,
-    };
+    console.error('searchEventsNearby RPC error:', error);
+    // Fallback to regular query when RPC is not available
+    return searchEventsFallback(filters, pagination);
   }
 
   // For nearby search, we need a separate count query
@@ -338,6 +333,82 @@ async function searchEventsNearby(
     limit,
     totalPages: Math.ceil(events.length / limit),
     hasNextPage: events.length === limit,
+    hasPreviousPage: page > 1,
+  };
+}
+
+/**
+ * Fallback search when RPC is not available
+ */
+async function searchEventsFallback(
+  filters: EventFilters,
+  pagination: PaginationParams
+): Promise<PaginatedResult<Event>> {
+  const { page, limit } = pagination;
+  const offset = (page - 1) * limit;
+
+  let query = supabase
+    .from('events')
+    .select(EVENT_SELECT_QUERY, { count: 'exact' })
+    .eq('status', 'published')
+    .gte('starts_at', (filters.dateFrom ?? new Date()).toISOString());
+
+  // Apply filters
+  if (filters.dateTo) {
+    query = query.lte('starts_at', filters.dateTo.toISOString());
+  }
+
+  if (filters.categoryId) {
+    query = query.eq('category_id', filters.categoryId);
+  }
+
+  if (filters.city) {
+    query = query.eq('city', filters.city);
+  }
+
+  if (filters.search) {
+    query = query.textSearch('title', filters.search, { type: 'websearch' });
+  }
+
+  if (filters.hasAvailableSpots) {
+    query = query.or('max_participants.is.null,current_participants.lt.max_participants');
+  }
+
+  if (filters.isFree) {
+    query = query.eq('entry_fee', 0);
+  }
+
+  // Apply sorting
+  query = query.order('starts_at', { ascending: true });
+
+  // Apply pagination
+  query = query.range(offset, offset + limit - 1);
+
+  const { data, error, count } = await withRetry(() => query);
+
+  if (error) {
+    console.error('searchEventsFallback error:', error);
+    return {
+      data: [],
+      total: 0,
+      page,
+      limit,
+      totalPages: 0,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    };
+  }
+
+  const total = count ?? 0;
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    data: (data ?? []).map(transformEvent),
+    total,
+    page,
+    limit,
+    totalPages,
+    hasNextPage: page < totalPages,
     hasPreviousPage: page > 1,
   };
 }
