@@ -51,10 +51,18 @@ const webStorage = {
 let AsyncStorage: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let SecureStore: any = null;
+// Track if SecureStore is working (some Expo Go environments have issues)
+let secureStoreAvailable = false;
 
 if (Platform.OS !== 'web') {
-  AsyncStorage = require('@react-native-async-storage/async-storage').default;
-  SecureStore = require('expo-secure-store');
+  try {
+    AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    SecureStore = require('expo-secure-store');
+    // Test if SecureStore is actually available
+    secureStoreAvailable = !!(SecureStore && typeof SecureStore.getItemAsync === 'function');
+  } catch (e) {
+    console.warn('Failed to load native storage modules:', e);
+  }
 }
 
 // ============================================================================
@@ -72,13 +80,19 @@ const ExpoSecureStoreAdapter = {
       if (Platform.OS === 'web') {
         return await webStorage.getItem(key);
       }
-      // SecureStore is only available on native platforms
-      if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
-        return await SecureStore.getItemAsync(key);
+      // Try SecureStore first if available, then fall back to AsyncStorage
+      if (secureStoreAvailable) {
+        try {
+          return await SecureStore.getItemAsync(key);
+        } catch (secureStoreError) {
+          // SecureStore failed, fall back to AsyncStorage
+          console.warn('SecureStore read failed, using AsyncStorage:', secureStoreError);
+          secureStoreAvailable = false; // Don't try again
+        }
       }
-      return await AsyncStorage?.getItem(key) ?? null;
+      return (await AsyncStorage?.getItem(key)) ?? null;
     } catch (error) {
-      console.error('Error reading from secure storage:', error);
+      console.error('Error reading from storage:', error);
       return null;
     }
   },
@@ -89,13 +103,21 @@ const ExpoSecureStoreAdapter = {
         await webStorage.setItem(key, value);
         return;
       }
-      if (SecureStore && typeof SecureStore.setItemAsync === 'function') {
-        await SecureStore.setItemAsync(key, value);
-      } else if (AsyncStorage) {
+      // Try SecureStore first if available, then fall back to AsyncStorage
+      if (secureStoreAvailable) {
+        try {
+          await SecureStore.setItemAsync(key, value);
+          return;
+        } catch (secureStoreError) {
+          console.warn('SecureStore write failed, using AsyncStorage:', secureStoreError);
+          secureStoreAvailable = false;
+        }
+      }
+      if (AsyncStorage) {
         await AsyncStorage.setItem(key, value);
       }
     } catch (error) {
-      console.error('Error writing to secure storage:', error);
+      console.error('Error writing to storage:', error);
     }
   },
 
@@ -105,13 +127,21 @@ const ExpoSecureStoreAdapter = {
         await webStorage.removeItem(key);
         return;
       }
-      if (SecureStore && typeof SecureStore.deleteItemAsync === 'function') {
-        await SecureStore.deleteItemAsync(key);
-      } else if (AsyncStorage) {
+      // Try SecureStore first if available, then fall back to AsyncStorage
+      if (secureStoreAvailable) {
+        try {
+          await SecureStore.deleteItemAsync(key);
+          return;
+        } catch (secureStoreError) {
+          console.warn('SecureStore delete failed, using AsyncStorage:', secureStoreError);
+          secureStoreAvailable = false;
+        }
+      }
+      if (AsyncStorage) {
         await AsyncStorage.removeItem(key);
       }
     } catch (error) {
-      console.error('Error removing from secure storage:', error);
+      console.error('Error removing from storage:', error);
     }
   },
 };
@@ -129,7 +159,7 @@ const isConfigured = !!ENV.supabase.url && !!ENV.supabase.anonKey;
 if (!isConfigured) {
   console.warn(
     '⚠️ Supabase not configured. Running in demo mode.\n' +
-    'Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env'
+      'Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env'
   );
 }
 
@@ -178,10 +208,7 @@ const REQUEST_DEDUP_TTL = 100; // ms
  * Deduplicate identical requests within a short time window
  * Prevents duplicate API calls from rapid re-renders
  */
-export function deduplicateRequest<T>(
-  key: string,
-  requestFn: () => Promise<T>
-): Promise<T> {
+export function deduplicateRequest<T>(key: string, requestFn: () => Promise<T>): Promise<T> {
   const now = Date.now();
   const existing = pendingRequests.get(key);
 
@@ -312,10 +339,10 @@ export function getConnectionStatus(): boolean {
 /**
  * Helper type for Supabase query results
  */
-export type QueryResult<T> = {
+export interface QueryResult<T> {
   data: T | null;
   error: Error | null;
-};
+}
 
 /**
  * Execute a query and return typed result
@@ -385,7 +412,9 @@ export function subscribeToTable<T extends Record<string, unknown>>(
  * Get current user ID or throw if not authenticated
  */
 export async function requireAuth(): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
     throw new Error('Authentication required');
@@ -398,7 +427,9 @@ export async function requireAuth(): Promise<string> {
  * Get current session
  */
 export async function getSession() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   return session;
 }
 
