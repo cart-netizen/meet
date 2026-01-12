@@ -3,7 +3,7 @@
  * Bottom sheet for selecting city
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   FlatList,
   Modal,
@@ -39,6 +39,15 @@ export function CityPicker({
   onSelect,
 }: CityPickerProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [tempSelectedCity, setTempSelectedCity] = useState<City | null>(selectedCity);
+
+  // Reset temp selection when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setTempSelectedCity(selectedCity);
+      setSearchQuery('');
+    }
+  }, [isOpen, selectedCity]);
 
   const filteredCities = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -50,18 +59,29 @@ export function CityPicker({
     );
   }, [searchQuery]);
 
-  const handleSelect = (city: City) => {
-    onSelect(city);
+  const handleCityPress = (city: City) => {
+    setTempSelectedCity(city);
+  };
+
+  const handleConfirm = () => {
+    if (tempSelectedCity) {
+      onSelect(tempSelectedCity);
+    }
+    onClose();
+    setSearchQuery('');
+  };
+
+  const handleClose = () => {
     onClose();
     setSearchQuery('');
   };
 
   const renderCity = ({ item }: { item: City }) => {
-    const isSelected = selectedCity?.id === item.id;
+    const isSelected = tempSelectedCity?.id === item.id;
     return (
       <Pressable
         style={[styles.cityRow, isSelected && styles.cityRowSelected]}
-        onPress={() => handleSelect(item)}
+        onPress={() => handleCityPress(item)}
       >
         <View style={styles.cityInfo}>
           <Text style={[styles.cityName, isSelected && styles.cityNameSelected]}>
@@ -74,15 +94,17 @@ export function CityPicker({
     );
   };
 
+  const hasChanged = tempSelectedCity?.id !== selectedCity?.id;
+
   return (
     <Modal
       visible={isOpen}
       animationType="slide"
       transparent
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
+        <Pressable style={styles.backdrop} onPress={handleClose} />
 
         <View style={styles.sheet}>
           {/* Handle */}
@@ -91,8 +113,8 @@ export function CityPicker({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Выберите город</Text>
-            <Pressable onPress={onClose}>
-              <Text style={styles.closeButton}>Закрыть</Text>
+            <Pressable onPress={handleClose}>
+              <Text style={styles.closeButton}>Отмена</Text>
             </Pressable>
           </View>
 
@@ -128,6 +150,28 @@ export function CityPicker({
               </View>
             }
           />
+
+          {/* Footer with Confirm Button */}
+          <View style={styles.footer}>
+            <View style={styles.selectedInfo}>
+              <Text style={styles.selectedLabel}>Выбрано:</Text>
+              <Text style={styles.selectedCity}>
+                {tempSelectedCity?.name ?? 'Не выбран'}
+              </Text>
+            </View>
+            <Pressable
+              style={[
+                styles.confirmButton,
+                !tempSelectedCity && styles.confirmButtonDisabled,
+              ]}
+              onPress={handleConfirm}
+              disabled={!tempSelectedCity}
+            >
+              <Text style={styles.confirmButtonText}>
+                {hasChanged ? 'Подтвердить' : 'Готово'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </Modal>
@@ -177,7 +221,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     fontSize: 14,
-    color: THEME_COLORS.primary,
+    color: THEME_COLORS.textSecondary,
     fontWeight: '500',
   },
   searchContainer: {
@@ -208,7 +252,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingBottom: 32,
+    paddingBottom: 8,
   },
   cityRow: {
     flexDirection: 'row',
@@ -251,5 +295,43 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: THEME_COLORS.textSecondary,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingBottom: 32,
+    borderTopWidth: 1,
+    borderTopColor: THEME_COLORS.divider,
+    backgroundColor: THEME_COLORS.surface,
+  },
+  selectedInfo: {
+    flex: 1,
+  },
+  selectedLabel: {
+    fontSize: 12,
+    color: THEME_COLORS.textMuted,
+    marginBottom: 2,
+  },
+  selectedCity: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: THEME_COLORS.text,
+  },
+  confirmButton: {
+    backgroundColor: THEME_COLORS.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  confirmButtonDisabled: {
+    backgroundColor: THEME_COLORS.border,
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
