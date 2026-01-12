@@ -28,6 +28,7 @@ import { THEME_COLORS } from '@/constants';
 import {
   selectCategoriesFlat,
   selectCategoriesError,
+  selectEffectiveCity,
   selectProfile,
   useAuthStore,
   useCategoriesStore,
@@ -73,6 +74,7 @@ export default function CreateEventScreen() {
   const session = useAuthStore((state) => state.session);
   const user = useAuthStore((state) => state.user);
   const userLocation = useLocationStore((state) => state.location);
+  const effectiveCity = useLocationStore(selectEffectiveCity);
   const categoriesFlat = useCategoriesStore(selectCategoriesFlat);
   const categoriesError = useCategoriesStore(selectCategoriesError);
   const refreshCategories = useCategoriesStore((state) => state.refresh);
@@ -237,7 +239,7 @@ export default function CreateEventScreen() {
         durationMinutes,
         address: formData.address.trim(),
         location: formData.location,
-        city: profile?.city ?? 'Москва',
+        city: effectiveCity?.name ?? profile?.city ?? 'Москва',
         maxParticipants: formData.maxParticipants,
         allowChat: formData.allowChat,
         requiresApproval: formData.requiresApproval,

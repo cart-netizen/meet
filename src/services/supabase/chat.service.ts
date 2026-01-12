@@ -92,7 +92,7 @@ export async function fetchMessages(
       .from('event_messages')
       .select(`
         *,
-        author:profiles!sender_id (
+        author:profiles!user_id (
           id,
           display_name,
           avatar_url
@@ -100,7 +100,7 @@ export async function fetchMessages(
         replyTo:event_messages!reply_to_id (
           id,
           content,
-          sender_id
+          user_id
         )
       `)
       .eq('event_id', eventId)
@@ -159,13 +159,13 @@ export async function sendMessage(params: SendMessageParams): Promise<MessageWit
       .from('event_messages')
       .insert({
         event_id: eventId,
-        sender_id: user.id,
+        user_id: user.id,
         content: trimmedContent,
         reply_to_id: replyToId ?? null,
       })
       .select(`
         *,
-        author:profiles!sender_id (
+        author:profiles!user_id (
           id,
           display_name,
           avatar_url
@@ -173,7 +173,7 @@ export async function sendMessage(params: SendMessageParams): Promise<MessageWit
         replyTo:event_messages!reply_to_id (
           id,
           content,
-          sender_id
+          user_id
         )
       `)
       .single();
@@ -211,10 +211,10 @@ export async function editMessage(
         edited_at: new Date().toISOString(),
       })
       .eq('id', messageId)
-      .eq('sender_id', user.id) // Ensure user owns the message
+      .eq('user_id', user.id) // Ensure user owns the message
       .select(`
         *,
-        author:profiles!sender_id (
+        author:profiles!user_id (
           id,
           display_name,
           avatar_url
@@ -222,7 +222,7 @@ export async function editMessage(
         replyTo:event_messages!reply_to_id (
           id,
           content,
-          sender_id
+          user_id
         )
       `)
       .single();
@@ -249,7 +249,7 @@ export async function deleteMessage(messageId: string): Promise<void> {
       .from('event_messages')
       .delete()
       .eq('id', messageId)
-      .eq('sender_id', user.id); // Ensure user owns the message
+      .eq('user_id', user.id); // Ensure user owns the message
 
     if (error) {
       throw new Error(`Failed to delete message: ${error.message}`);
@@ -287,7 +287,7 @@ export function subscribeToMessages(
           .from('event_messages')
           .select(`
             *,
-            author:profiles!sender_id (
+            author:profiles!user_id (
               id,
               display_name,
               avatar_url
@@ -332,7 +332,7 @@ export function subscribeToMessages(
           .from('event_messages')
           .select(`
             *,
-            author:profiles!sender_id (
+            author:profiles!user_id (
               id,
               display_name,
               avatar_url
@@ -548,7 +548,7 @@ function transformMessage(data: Record<string, unknown>): MessageWithAuthor {
   return {
     id: data.id as string,
     eventId: data.event_id as string,
-    senderId: data.sender_id as string,
+    senderId: data.user_id as string,
     content: data.content as string,
     replyToId: data.reply_to_id as string | null,
     editedAt: data.edited_at ? new Date(data.edited_at as string) : undefined,
@@ -562,7 +562,7 @@ function transformMessage(data: Record<string, unknown>): MessageWithAuthor {
       ? {
           id: replyTo.id as string,
           eventId: data.event_id as string,
-          senderId: replyTo.sender_id as string,
+          senderId: replyTo.user_id as string,
           content: replyTo.content as string,
           replyToId: null,
           createdAt: new Date(),
