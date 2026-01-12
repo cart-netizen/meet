@@ -107,7 +107,7 @@ export interface Event {
 
   // Time
   startsAt: Date;
-  endsAt: Date | null;
+  endsAt: Date;
   durationMinutes: number | null;
   timezone: string;
 
