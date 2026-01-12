@@ -1,5 +1,6 @@
 module.exports = {
   root: true,
+  ignorePatterns: ['.eslintrc.js', '*.config.js', 'node_modules/'],
   parser: '@typescript-eslint/parser',
   parserOptions: {
     ecmaVersion: 2022,
@@ -80,26 +81,6 @@ module.exports = {
     'curly': ['error', 'all'],
   },
   overrides: [
-    {
-      // Disable TypeScript project and type-aware rules for JS config files
-      files: ['*.js', '*.cjs'],
-      parserOptions: {
-        project: null,
-      },
-      rules: {
-        '@typescript-eslint/no-var-requires': 'off',
-        '@typescript-eslint/prefer-nullish-coalescing': 'off',
-        '@typescript-eslint/prefer-optional-chain': 'off',
-        '@typescript-eslint/no-floating-promises': 'off',
-        '@typescript-eslint/await-thenable': 'off',
-        '@typescript-eslint/no-misused-promises': 'off',
-        '@typescript-eslint/consistent-type-imports': 'off',
-        '@typescript-eslint/no-unsafe-assignment': 'off',
-        '@typescript-eslint/no-unsafe-call': 'off',
-        '@typescript-eslint/no-unsafe-member-access': 'off',
-        '@typescript-eslint/no-unsafe-return': 'off',
-      },
-    },
     {
       files: ['*.test.ts', '*.test.tsx', '**/__tests__/**'],
       rules: {
