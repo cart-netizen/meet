@@ -173,7 +173,6 @@ export const useEventsStore = create<EventsState>()(
         set((state) => {
           // Create new array reference to ensure Zustand detects the change
           state.discoveryEvents = [...result.data];
-          console.log('Store updated with', state.discoveryEvents.length, 'events');
           state.discoveryPagination = {
             page: result.page,
             totalPages: result.totalPages,
@@ -187,6 +186,9 @@ export const useEventsStore = create<EventsState>()(
             state.eventsCache.set(event.id, { event, timestamp: now });
           }
         });
+
+        // Log state AFTER set completes
+        console.log('Store state after set:', get().discoveryEvents.length, 'events');
       } catch (error) {
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to fetch events';
