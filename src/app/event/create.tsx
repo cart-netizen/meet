@@ -27,6 +27,7 @@ import { LocationPicker } from '@/components/map';
 import { THEME_COLORS } from '@/constants';
 import {
   selectCategoriesFlat,
+  selectCategoriesError,
   selectProfile,
   useAuthStore,
   useCategoriesStore,
@@ -34,13 +35,19 @@ import {
 } from '@/stores';
 import { createEvent } from '@/services/supabase/events.service';
 import { resendVerificationEmail } from '@/services/supabase/auth.service';
-import type { CreateEventData, GeoPoint } from '@/types';
+import type { EventCreateInput, GeoPoint } from '@/types';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 type WizardStep = 'category' | 'details' | 'datetime' | 'location' | 'settings';
+
+// Helper to check if a string is a valid UUID
+const isValidUUID = (str: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
 
 interface FormData {
   categoryId: string;
@@ -67,6 +74,8 @@ export default function CreateEventScreen() {
   const user = useAuthStore((state) => state.user);
   const userLocation = useLocationStore((state) => state.location);
   const categoriesFlat = useCategoriesStore(selectCategoriesFlat);
+  const categoriesError = useCategoriesStore(selectCategoriesError);
+  const refreshCategories = useCategoriesStore((state) => state.refresh);
 
   const [currentStep, setCurrentStep] = useState<WizardStep>('category');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -140,6 +149,18 @@ export default function CreateEventScreen() {
           Alert.alert('Ошибка', 'Выберите категорию');
           return false;
         }
+        // Check if category ID is a valid UUID (not fallback data)
+        if (!isValidUUID(formData.categoryId)) {
+          Alert.alert(
+            'Ошибка загрузки категорий',
+            'Категории не загружены с сервера. Попробуйте обновить.',
+            [
+              { text: 'Отмена', style: 'cancel' },
+              { text: 'Обновить', onPress: () => refreshCategories(true) },
+            ]
+          );
+          return false;
+        }
         break;
       case 'details':
         if (!formData.title.trim()) {
@@ -187,7 +208,7 @@ export default function CreateEventScreen() {
         break;
     }
     return true;
-  }, [currentStep, formData]);
+  }, [currentStep, formData, refreshCategories]);
 
   // Handle next button
   const handleNext = useCallback(() => {
@@ -203,19 +224,25 @@ export default function CreateEventScreen() {
 
     setIsSubmitting(true);
     try {
-      const eventData: CreateEventData = {
+      // Calculate duration in minutes from start and end times
+      const durationMinutes = Math.round(
+        (formData.endsAt.getTime() - formData.startsAt.getTime()) / (1000 * 60)
+      );
+
+      const eventData: EventCreateInput = {
         categoryId: formData.categoryId,
         title: formData.title.trim(),
         description: formData.description.trim(),
         startsAt: formData.startsAt,
-        endsAt: formData.endsAt,
+        durationMinutes,
         address: formData.address.trim(),
-        placeName: formData.placeName.trim() || undefined,
         location: formData.location,
+        city: profile?.city ?? 'Москва',
         maxParticipants: formData.maxParticipants,
-        price: formData.price > 0 ? formData.price : undefined,
         allowChat: formData.allowChat,
         requiresApproval: formData.requiresApproval,
+        ...(formData.placeName.trim() && { placeName: formData.placeName.trim() }),
+        ...(formData.price > 0 && { entryFee: formData.price }),
       };
 
       const result = await createEvent(eventData);
@@ -237,7 +264,7 @@ export default function CreateEventScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, validateStep]);
+  }, [formData, validateStep, profile]);
 
   // Render email verification required
   if (!isEmailVerified) {
@@ -300,6 +327,16 @@ export default function CreateEventScreen() {
             <Text style={styles.stepSubtitle}>
               Какой тип встречи вы хотите организовать?
             </Text>
+            {categoriesError && (
+              <Pressable
+                style={styles.categoriesErrorBanner}
+                onPress={() => refreshCategories(true)}
+              >
+                <Text style={styles.categoriesErrorText}>
+                  Ошибка загрузки категорий. Нажмите чтобы обновить.
+                </Text>
+              </Pressable>
+            )}
             <View style={styles.categoriesGrid}>
               {categoriesFlat.map((category) => (
                 <Pressable
@@ -698,6 +735,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: THEME_COLORS.textSecondary,
     marginBottom: 24,
+  },
+  categoriesErrorBanner: {
+    backgroundColor: `${THEME_COLORS.warning}20`,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.warning,
+  },
+  categoriesErrorText: {
+    fontSize: 14,
+    color: THEME_COLORS.warning,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   categoriesGrid: {
     flexDirection: 'row',
