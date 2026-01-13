@@ -138,7 +138,12 @@ export default function EventDetailScreen() {
 
     setIsJoining(true);
     try {
-      await joinEvent(event.id);
+      const result = await joinEvent(event.id);
+
+      if (result.error) {
+        Alert.alert('Ошибка', result.error.message);
+        return;
+      }
 
       // Schedule reminder
       await scheduleEventReminder(event.id, event.title, event.startsAt, 60);
@@ -148,6 +153,9 @@ export default function EventDetailScreen() {
         getEventById(event.id),
         getEventParticipants(event.id),
       ]);
+
+      console.log('After join - participants:', participantsResult.participants?.length);
+
       if (eventResult.event) {
         setEvent(eventResult.event);
       }

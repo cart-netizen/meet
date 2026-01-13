@@ -148,6 +148,18 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="profile/edit"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="profile/interests"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
               name="chat/dm/[userId]"
               options={{
                 headerShown: false,
