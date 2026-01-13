@@ -594,6 +594,7 @@ export async function joinEvent(
   }
 
   const status = event.requires_approval ? 'pending' : 'approved';
+  console.log('joinEvent - inserting participant with status:', status, 'userId:', user.id, 'eventId:', eventId);
 
   const { error } = await supabase.from('event_participants').insert({
     event_id: eventId,
@@ -603,15 +604,19 @@ export async function joinEvent(
   });
 
   if (error) {
+    console.log('joinEvent - insert error:', error.code, error.message);
     if (error.code === '23505') {
       return { error: new Error('Already joined this event') };
     }
     return { error: new Error(error.message) };
   }
 
+  console.log('joinEvent - insert success');
+
   // Increment participant count if auto-approved
   if (status === 'approved') {
-    await supabase.rpc('increment_participants', { p_event_id: eventId });
+    const { error: rpcError } = await supabase.rpc('increment_participants', { p_event_id: eventId });
+    console.log('joinEvent - increment_participants result:', rpcError ? rpcError.message : 'success');
   }
 
   return { error: null };
@@ -708,6 +713,8 @@ export async function declineParticipant(
  * Get participants for an event
  */
 export async function getEventParticipants(eventId: string): Promise<ParticipantsResult> {
+  console.log('getEventParticipants - fetching for eventId:', eventId);
+
   const { data, error } = await supabase
     .from('event_participants')
     .select(
@@ -719,6 +726,8 @@ export async function getEventParticipants(eventId: string): Promise<Participant
     .eq('event_id', eventId)
     .in('status', ['pending', 'approved', 'attended'])
     .order('joined_at', { ascending: true });
+
+  console.log('getEventParticipants - result:', data?.length ?? 0, 'participants, error:', error?.message ?? 'none');
 
   if (error) {
     return { participants: [], error: new Error(error.message) };
