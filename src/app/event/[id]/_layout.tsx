@@ -42,6 +42,12 @@ export default function EventDetailLayout() {
           presentation: 'modal',
         }}
       />
+      <Stack.Screen
+        name="participants"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

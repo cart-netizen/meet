@@ -53,6 +53,10 @@ export default function EventChatScreen() {
   const inputRef = useRef<TextInput>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Only organizer can send messages in event chat
+  const isOrganizer = event?.organizerId === profile?.id;
+  const canSendMessages = isOrganizer;
+
   // Fetch initial data
   useEffect(() => {
     async function loadData() {
@@ -362,29 +366,38 @@ export default function EventChatScreen() {
           </View>
         )}
 
-        {/* Input */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            placeholder="Сообщение..."
-            placeholderTextColor={THEME_COLORS.textMuted}
-            value={inputText}
-            onChangeText={handleTextChange}
-            multiline
-            maxLength={2000}
-          />
-          <Pressable
-            style={[
-              styles.sendButton,
-              (!inputText.trim() || isSending) && styles.sendButtonDisabled,
-            ]}
-            onPress={handleSend}
-            disabled={!inputText.trim() || isSending}
-          >
-            <Text style={styles.sendIcon}>↑</Text>
-          </Pressable>
-        </View>
+        {/* Input - Only organizer can send */}
+        {canSendMessages ? (
+          <View style={styles.inputContainer}>
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              placeholder="Сообщение..."
+              placeholderTextColor={THEME_COLORS.textMuted}
+              value={inputText}
+              onChangeText={handleTextChange}
+              multiline
+              maxLength={2000}
+            />
+            <Pressable
+              style={[
+                styles.sendButton,
+                (!inputText.trim() || isSending) && styles.sendButtonDisabled,
+              ]}
+              onPress={handleSend}
+              disabled={!inputText.trim() || isSending}
+            >
+              <Text style={styles.sendIcon}>↑</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.readOnlyContainer}>
+            <Text style={styles.readOnlyIcon}>🔒</Text>
+            <Text style={styles.readOnlyText}>
+              Только организатор может писать в этот чат
+            </Text>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -677,5 +690,24 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  readOnlyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 32,
+    backgroundColor: THEME_COLORS.surface,
+    borderTopWidth: 1,
+    borderTopColor: THEME_COLORS.divider,
+    gap: 8,
+  },
+  readOnlyIcon: {
+    fontSize: 16,
+  },
+  readOnlyText: {
+    fontSize: 14,
+    color: THEME_COLORS.textMuted,
   },
 });
