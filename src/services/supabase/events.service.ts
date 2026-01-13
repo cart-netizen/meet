@@ -597,24 +597,55 @@ export async function joinEvent(
   }
 
   const status = event.requires_approval ? 'pending' : 'approved';
-  console.log('joinEvent - inserting participant with status:', status, 'userId:', user.id, 'eventId:', eventId);
+  console.log('joinEvent - checking existing participant, userId:', user.id, 'eventId:', eventId);
 
-  const { error } = await supabase.from('event_participants').insert({
-    event_id: eventId,
-    user_id: user.id,
-    status,
-    message_to_organizer: message,
-  });
+  // Check if participant record already exists (e.g., they left and want to rejoin)
+  const { data: existingParticipant } = await supabase
+    .from('event_participants')
+    .select('id, status')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .single();
 
-  if (error) {
-    console.log('joinEvent - insert error:', error.code, error.message);
-    if (error.code === '23505') {
+  if (existingParticipant) {
+    // If already active, return error
+    if (['pending', 'approved', 'attended'].includes(existingParticipant.status)) {
       return { error: new Error('Already joined this event') };
     }
-    return { error: new Error(error.message) };
+
+    // If cancelled or declined, reactivate the record
+    console.log('joinEvent - reactivating existing participant with status:', status);
+    const { error } = await supabase
+      .from('event_participants')
+      .update({
+        status,
+        message_to_organizer: message,
+        cancelled_at: null,
+        joined_at: new Date().toISOString(),
+      })
+      .eq('id', existingParticipant.id);
+
+    if (error) {
+      console.log('joinEvent - update error:', error.message);
+      return { error: new Error(error.message) };
+    }
+  } else {
+    // Create new participant record
+    console.log('joinEvent - inserting new participant with status:', status);
+    const { error } = await supabase.from('event_participants').insert({
+      event_id: eventId,
+      user_id: user.id,
+      status,
+      message_to_organizer: message,
+    });
+
+    if (error) {
+      console.log('joinEvent - insert error:', error.code, error.message);
+      return { error: new Error(error.message) };
+    }
   }
 
-  console.log('joinEvent - insert success');
+  console.log('joinEvent - success');
 
   // Always increment participant count (count all who signed up)
   const { error: rpcError } = await supabase.rpc('increment_participants', { p_event_id: eventId });
