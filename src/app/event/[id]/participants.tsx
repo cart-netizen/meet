@@ -150,7 +150,7 @@ export default function ParticipantsScreen() {
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Участники</Text>
           <Text style={styles.headerSubtitle}>
-            {participants.length} из {event?.maxParticipants ?? '∞'}
+            {participants.length} записалось
           </Text>
         </View>
       </View>

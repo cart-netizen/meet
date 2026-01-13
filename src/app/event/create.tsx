@@ -199,14 +199,7 @@ export default function CreateEventScreen() {
         }
         break;
       case 'settings':
-        if (formData.maxParticipants < 2) {
-          Alert.alert('Ошибка', 'Минимальное количество участников: 2');
-          return false;
-        }
-        if (formData.maxParticipants > 100) {
-          Alert.alert('Ошибка', 'Максимальное количество участников: 100');
-          return false;
-        }
+        // No validation needed - unlimited participants
         break;
     }
     return true;
@@ -240,7 +233,7 @@ export default function CreateEventScreen() {
         address: formData.address.trim(),
         location: formData.location,
         city: effectiveCity?.name ?? profile?.city ?? 'Москва',
-        maxParticipants: formData.maxParticipants,
+        maxParticipants: 99999, // Unlimited
         allowChat: formData.allowChat,
         requiresApproval: formData.requiresApproval,
         ...(formData.placeName.trim() && { placeName: formData.placeName.trim() }),
@@ -524,35 +517,6 @@ export default function CreateEventScreen() {
         return (
           <ScrollView contentContainerStyle={styles.stepContent}>
             <Text style={styles.stepTitle}>Настройки</Text>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Максимум участников</Text>
-              <View style={styles.counterRow}>
-                <Pressable
-                  style={styles.counterButton}
-                  onPress={() =>
-                    updateField(
-                      'maxParticipants',
-                      Math.max(2, formData.maxParticipants - 1)
-                    )
-                  }
-                >
-                  <Text style={styles.counterButtonText}>−</Text>
-                </Pressable>
-                <Text style={styles.counterValue}>{formData.maxParticipants}</Text>
-                <Pressable
-                  style={styles.counterButton}
-                  onPress={() =>
-                    updateField(
-                      'maxParticipants',
-                      Math.min(100, formData.maxParticipants + 1)
-                    )
-                  }
-                >
-                  <Text style={styles.counterButtonText}>+</Text>
-                </Pressable>
-              </View>
-            </View>
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Стоимость участия (₽)</Text>
