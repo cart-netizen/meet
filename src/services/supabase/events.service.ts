@@ -613,11 +613,9 @@ export async function joinEvent(
 
   console.log('joinEvent - insert success');
 
-  // Increment participant count if auto-approved
-  if (status === 'approved') {
-    const { error: rpcError } = await supabase.rpc('increment_participants', { p_event_id: eventId });
-    console.log('joinEvent - increment_participants result:', rpcError ? rpcError.message : 'success');
-  }
+  // Always increment participant count (count all who signed up)
+  const { error: rpcError } = await supabase.rpc('increment_participants', { p_event_id: eventId });
+  console.log('joinEvent - increment_participants result:', rpcError ? rpcError.message : 'success');
 
   return { error: null };
 }
@@ -657,16 +655,15 @@ export async function leaveEvent(eventId: string): Promise<{ error: Error | null
     return { error: new Error(error.message) };
   }
 
-  // Decrement participant count if was approved
-  if (participation.status === 'approved') {
-    await supabase.rpc('decrement_participants', { p_event_id: eventId });
-  }
+  // Always decrement participant count when leaving
+  await supabase.rpc('decrement_participants', { p_event_id: eventId });
 
   return { error: null };
 }
 
 /**
  * Approve a participant (organizer only)
+ * Note: participant count is already incremented at join time
  */
 export async function approveParticipant(
   eventId: string,
@@ -685,14 +682,12 @@ export async function approveParticipant(
     return { error: new Error(error.message) };
   }
 
-  // Increment participant count
-  await supabase.rpc('increment_participants', { p_event_id: eventId });
-
   return { error: null };
 }
 
 /**
  * Decline a participant (organizer only)
+ * Note: decrement count since participant was counted at join time
  */
 export async function declineParticipant(
   eventId: string,
@@ -706,7 +701,14 @@ export async function declineParticipant(
     .eq('event_id', eventId)
     .eq('user_id', userId);
 
-  return { error: error ? new Error(error.message) : null };
+  if (error) {
+    return { error: new Error(error.message) };
+  }
+
+  // Decrement count since participant was counted at join
+  await supabase.rpc('decrement_participants', { p_event_id: eventId });
+
+  return { error: null };
 }
 
 /**
