@@ -30,7 +30,7 @@ import {
   subscribeToTyping,
   type MessageWithAuthor,
 } from '@/services/supabase/chat.service';
-import { getEventById } from '@/services/supabase/events.service';
+import { getEventById, getEventParticipants } from '@/services/supabase/events.service';
 import type { Event } from '@/types';
 
 // ============================================================================
@@ -48,6 +48,7 @@ export default function EventChatScreen() {
   const [isSending, setIsSending] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [replyTo, setReplyTo] = useState<MessageWithAuthor | null>(null);
+  const [participantsCount, setParticipantsCount] = useState(0);
 
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
@@ -64,15 +65,20 @@ export default function EventChatScreen() {
 
       setIsLoading(true);
       try {
-        // Fetch event info
-        const eventData = await getEventById(id);
+        // Fetch event info and participants
+        const [eventData, participantsData, messagesData] = await Promise.all([
+          getEventById(id),
+          getEventParticipants(id),
+          fetchMessages(id),
+        ]);
+
         if (eventData) {
           setEvent(eventData.event);
         }
-
-        // Fetch messages
-        const { messages: fetchedMessages } = await fetchMessages(id);
-        setMessages(fetchedMessages.reverse());
+        if (participantsData.participants) {
+          setParticipantsCount(participantsData.participants.length);
+        }
+        setMessages(messagesData.messages.reverse());
       } catch (error) {
         console.error('Failed to load chat:', error);
       } finally {
@@ -317,7 +323,7 @@ export default function EventChatScreen() {
             {event?.title ?? 'Чат'}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {event?.currentParticipants ?? 0} участников
+            {participantsCount} участников
           </Text>
         </View>
         <Pressable
