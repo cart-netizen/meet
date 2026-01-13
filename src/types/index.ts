@@ -49,6 +49,8 @@ export interface ProfileUpdateInput {
   birthYear?: number | null;
   city?: string;
   interests?: string[];
+  subscriptionType?: SubscriptionType;
+  subscriptionExpiresAt?: string | null;
 }
 
 // ============================================================================

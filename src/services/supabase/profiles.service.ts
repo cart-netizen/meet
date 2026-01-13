@@ -90,6 +90,12 @@ export async function updateProfile(input: ProfileUpdateInput): Promise<ProfileR
   if (input.interests !== undefined) {
     updateData.interests = input.interests;
   }
+  if (input.subscriptionType !== undefined) {
+    updateData.subscription_type = input.subscriptionType;
+  }
+  if (input.subscriptionExpiresAt !== undefined) {
+    updateData.subscription_expires_at = input.subscriptionExpiresAt;
+  }
 
   const { data, error } = await supabase
     .from('profiles')
