@@ -344,7 +344,7 @@ export default function EventDetailScreen() {
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Участники</Text>
               <Text style={styles.infoValue}>
-                {event.currentParticipants} из {event.maxParticipants}
+                {participants.length} из {event.maxParticipants}
               </Text>
             </View>
             <Text style={styles.infoArrow}>›</Text>

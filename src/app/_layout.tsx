@@ -141,6 +141,18 @@ export default function RootLayout() {
                 presentation: 'modal',
               }}
             />
+            <Stack.Screen
+              name="profile/[id]"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="chat/dm/[userId]"
+              options={{
+                headerShown: false,
+              }}
+            />
           </Stack>
         </PaperProvider>
       </SafeAreaProvider>
