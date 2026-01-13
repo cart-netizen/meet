@@ -96,11 +96,6 @@ export async function fetchMessages(
           id,
           display_name,
           avatar_url
-        ),
-        replyTo:event_messages!reply_to_id (
-          id,
-          content,
-          user_id
         )
       `)
       .eq('event_id', eventId)
@@ -161,7 +156,6 @@ export async function sendMessage(params: SendMessageParams): Promise<MessageWit
         event_id: eventId,
         user_id: user.id,
         content: trimmedContent,
-        reply_to_id: replyToId ?? null,
       })
       .select(`
         *,
@@ -169,11 +163,6 @@ export async function sendMessage(params: SendMessageParams): Promise<MessageWit
           id,
           display_name,
           avatar_url
-        ),
-        replyTo:event_messages!reply_to_id (
-          id,
-          content,
-          user_id
         )
       `)
       .single();
@@ -208,7 +197,6 @@ export async function editMessage(
       .from('event_messages')
       .update({
         content: trimmedContent,
-        edited_at: new Date().toISOString(),
       })
       .eq('id', messageId)
       .eq('user_id', user.id) // Ensure user owns the message
@@ -218,11 +206,6 @@ export async function editMessage(
           id,
           display_name,
           avatar_url
-        ),
-        replyTo:event_messages!reply_to_id (
-          id,
-          content,
-          user_id
         )
       `)
       .single();
@@ -291,11 +274,6 @@ export function subscribeToMessages(
               id,
               display_name,
               avatar_url
-            ),
-            replyTo:event_messages!reply_to_id (
-              id,
-              content,
-              user_id
             )
           `)
           .eq('id', (payload.new as { id: string }).id)
@@ -336,11 +314,6 @@ export function subscribeToMessages(
               id,
               display_name,
               avatar_url
-            ),
-            replyTo:event_messages!reply_to_id (
-              id,
-              content,
-              user_id
             )
           `)
           .eq('id', (payload.new as { id: string }).id)
@@ -543,31 +516,21 @@ export function subscribeToTyping(
  */
 function transformMessage(data: Record<string, unknown>): MessageWithAuthor {
   const author = data.author as Record<string, unknown>;
-  const replyTo = data.replyTo as Record<string, unknown> | null;
 
   return {
     id: data.id as string,
     eventId: data.event_id as string,
     senderId: data.user_id as string,
     content: data.content as string,
-    replyToId: data.reply_to_id as string | null,
-    editedAt: data.edited_at ? new Date(data.edited_at as string) : undefined,
+    replyToId: null,
+    editedAt: undefined,
     createdAt: new Date(data.created_at as string),
     author: {
       id: author.id as string,
       displayName: author.display_name as string,
       avatarUrl: author.avatar_url as string | undefined,
     },
-    replyTo: replyTo
-      ? {
-          id: replyTo.id as string,
-          eventId: data.event_id as string,
-          senderId: replyTo.user_id as string,
-          content: replyTo.content as string,
-          replyToId: null,
-          createdAt: new Date(),
-        }
-      : null,
+    replyTo: null,
   };
 }
 
