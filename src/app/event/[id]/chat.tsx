@@ -89,7 +89,13 @@ export default function EventChatScreen() {
 
     const unsubscribeMessages = subscribeToMessages(id, {
       onMessage: (message) => {
-        setMessages((prev) => [...prev, message]);
+        setMessages((prev) => {
+          // Check if message already exists (from optimistic update)
+          if (prev.some(m => m.id === message.id)) {
+            return prev;
+          }
+          return [...prev, message];
+        });
         // Scroll to bottom on new message
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
@@ -158,13 +164,25 @@ export default function EventChatScreen() {
 
     setIsSending(true);
     try {
-      await sendMessage({
+      const message = await sendMessage({
         eventId: id,
         content: inputText.trim(),
         replyToId: replyTo?.id,
       });
+      // Add message immediately (optimistic update)
+      setMessages((prev) => {
+        // Check if message already exists
+        if (prev.some(m => m.id === message.id)) {
+          return prev;
+        }
+        return [...prev, message];
+      });
       setInputText('');
       setReplyTo(null);
+      // Scroll to bottom
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     } catch (error) {
       console.error('Failed to send message:', error);
     } finally {

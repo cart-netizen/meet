@@ -21,7 +21,7 @@ import { ru } from 'date-fns/locale';
 
 import { Avatar, Badge, Button } from '@/components/ui';
 import { THEME_COLORS } from '@/constants';
-import { selectProfile, useAuthStore } from '@/stores';
+import { selectProfile, useAuthStore, useCategoriesStore } from '@/stores';
 import { getProfileById, getProfileReviews, getProfileStats } from '@/services/supabase/profiles.service';
 import type { Profile, Review } from '@/types';
 
@@ -34,6 +34,18 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const currentUser = useAuthStore(selectProfile);
+  const getCategoryById = useCategoriesStore((state) => state.getCategoryById);
+
+  // Helper to get interest display name (handles both IDs and names)
+  const getInterestDisplayName = useCallback((interest: string): string => {
+    // First try to find by ID
+    const categoryById = getCategoryById(interest);
+    if (categoryById) {
+      return categoryById.name;
+    }
+    // If not found by ID, it might already be a name or not in our categories
+    return interest;
+  }, [getCategoryById]);
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -258,7 +270,7 @@ export default function UserProfileScreen() {
               <View style={styles.interestsTags}>
                 {profile.interests.map((interest, index) => (
                   <View key={index} style={styles.interestTag}>
-                    <Text style={styles.interestText}>{interest}</Text>
+                    <Text style={styles.interestText}>{getInterestDisplayName(interest)}</Text>
                   </View>
                 ))}
               </View>
