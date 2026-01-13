@@ -44,7 +44,7 @@ export default function SubscriptionScreen() {
   }, [currentSubscription]);
 
   // Refresh profile action
-  const refreshProfile = useAuthStore((state) => state.fetchProfile);
+  const refreshProfile = useAuthStore((state) => state.refreshProfile);
 
   // Handle purchase - TEST MODE: directly activate subscription
   const handlePurchase = useCallback(async () => {
