@@ -127,7 +127,13 @@ export default function DirectMessageScreen() {
             createdAt: new Date(payload.new.created_at),
             isRead: payload.new.is_read,
           };
-          setMessages((prev) => [...prev, newMessage]);
+          setMessages((prev) => {
+            // Check if message already exists (from optimistic update)
+            if (prev.some(m => m.id === newMessage.id)) {
+              return prev;
+            }
+            return [...prev, newMessage];
+          });
           setTimeout(() => {
             flatListRef.current?.scrollToEnd({ animated: true });
           }, 100);
@@ -146,11 +152,15 @@ export default function DirectMessageScreen() {
 
     setIsSending(true);
     try {
-      const { error } = await supabase.from('direct_messages').insert({
-        sender_id: currentUser.id,
-        receiver_id: userId,
-        content: inputText.trim(),
-      });
+      const { data, error } = await supabase
+        .from('direct_messages')
+        .insert({
+          sender_id: currentUser.id,
+          receiver_id: userId,
+          content: inputText.trim(),
+        })
+        .select()
+        .single();
 
       if (error) {
         // If table doesn't exist, show a message
@@ -162,8 +172,28 @@ export default function DirectMessageScreen() {
         } else {
           throw error;
         }
-      } else {
+      } else if (data) {
+        // Add message immediately (optimistic update)
+        const newMessage: DirectMessage = {
+          id: data.id,
+          senderId: data.sender_id,
+          receiverId: data.receiver_id,
+          content: data.content,
+          createdAt: new Date(data.created_at),
+          isRead: data.is_read,
+        };
+        setMessages((prev) => {
+          // Check if message already exists
+          if (prev.some(m => m.id === newMessage.id)) {
+            return prev;
+          }
+          return [...prev, newMessage];
+        });
         setInputText('');
+        // Scroll to bottom
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
       }
     } catch (error) {
       console.error('Failed to send message:', error);
