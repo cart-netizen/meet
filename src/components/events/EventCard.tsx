@@ -121,16 +121,7 @@ export const EventCard = memo(function EventCard({
           <Text style={styles.participantsIcon}>👥</Text>
           <Text style={styles.participantsText}>
             {event.currentParticipants}
-            {event.maxParticipants && `/${event.maxParticipants}`}
           </Text>
-          {spotsLeft !== null && spotsLeft <= 3 && spotsLeft > 0 && (
-            <Text style={styles.spotsLeft}>(осталось {spotsLeft})</Text>
-          )}
-          {spotsLeft === 0 && (
-            <Badge variant="warning" size="sm">
-              Мест нет
-            </Badge>
-          )}
         </View>
       </View>
 
