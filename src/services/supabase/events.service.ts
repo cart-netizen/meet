@@ -80,6 +80,9 @@ export async function createEvent(input: EventCreateInput): Promise<EventResult>
     return { event: null, error: new Error(error.message) };
   }
 
+  // Increment organizer's events_organized count
+  await supabase.rpc('increment_events_organized', { p_user_id: user.id });
+
   return { event: transformEvent(data), error: null };
 }
 
@@ -712,6 +715,58 @@ export async function declineParticipant(
 }
 
 /**
+ * Mark participant as attended (organizer only)
+ * Updates participant status and increments user's events_attended count
+ */
+export async function markParticipantAttended(
+  eventId: string,
+  userId: string
+): Promise<{ error: Error | null }> {
+  const { error } = await supabase
+    .from('event_participants')
+    .update({
+      status: 'attended',
+    })
+    .eq('event_id', eventId)
+    .eq('user_id', userId);
+
+  if (error) {
+    return { error: new Error(error.message) };
+  }
+
+  // Increment user's events_attended count
+  await supabase.rpc('increment_events_attended', { p_user_id: userId });
+
+  return { error: null };
+}
+
+/**
+ * Mark participant as no-show (organizer only)
+ * Updates participant status and increments user's no_show_count
+ */
+export async function markParticipantNoShow(
+  eventId: string,
+  userId: string
+): Promise<{ error: Error | null }> {
+  const { error } = await supabase
+    .from('event_participants')
+    .update({
+      status: 'no_show',
+    })
+    .eq('event_id', eventId)
+    .eq('user_id', userId);
+
+  if (error) {
+    return { error: new Error(error.message) };
+  }
+
+  // Increment user's no_show_count
+  await supabase.rpc('increment_no_show', { p_user_id: userId });
+
+  return { error: null };
+}
+
+/**
  * Get participants for an event
  */
 export async function getEventParticipants(eventId: string): Promise<ParticipantsResult> {
@@ -726,7 +781,7 @@ export async function getEventParticipants(eventId: string): Promise<Participant
     `
     )
     .eq('event_id', eventId)
-    .in('status', ['pending', 'approved', 'attended'])
+    .in('status', ['pending', 'approved', 'attended', 'no_show'])
     .order('joined_at', { ascending: true });
 
   console.log('getEventParticipants - result:', data?.length ?? 0, 'participants, error:', error?.message ?? 'none');

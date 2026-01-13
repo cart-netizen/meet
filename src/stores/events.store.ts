@@ -424,7 +424,20 @@ export const useEventsStore = create<EventsState>()(
         if (state.currentEvent?.id === eventId) {
           state.currentEvent.currentParticipants += 1;
         }
+        // Also update in discovery events
+        const discoveryIndex = state.discoveryEvents.findIndex(e => e.id === eventId);
+        if (discoveryIndex !== -1) {
+          state.discoveryEvents[discoveryIndex].currentParticipants += 1;
+        }
+        // And in my participating events
+        const participatingIndex = state.myParticipatingEvents.findIndex(e => e.id === eventId);
+        if (participatingIndex !== -1) {
+          state.myParticipatingEvents[participatingIndex].currentParticipants += 1;
+        }
       });
+
+      // Invalidate cache for this event
+      get().eventsCache.delete(eventId);
 
       try {
         const { error } = await joinEvent(eventId, message);
@@ -435,6 +448,16 @@ export const useEventsStore = create<EventsState>()(
             state.isParticipating = false;
             if (state.currentEvent?.id === eventId) {
               state.currentEvent.currentParticipants -= 1;
+            }
+            // Rollback discovery events
+            const discoveryIndex = state.discoveryEvents.findIndex(e => e.id === eventId);
+            if (discoveryIndex !== -1) {
+              state.discoveryEvents[discoveryIndex].currentParticipants -= 1;
+            }
+            // Rollback participating events
+            const participatingIndex = state.myParticipatingEvents.findIndex(e => e.id === eventId);
+            if (participatingIndex !== -1) {
+              state.myParticipatingEvents[participatingIndex].currentParticipants -= 1;
             }
           });
           return { error: error.message };
@@ -449,6 +472,16 @@ export const useEventsStore = create<EventsState>()(
           state.isParticipating = false;
           if (state.currentEvent?.id === eventId) {
             state.currentEvent.currentParticipants -= 1;
+          }
+          // Rollback discovery events
+          const discoveryIndex = state.discoveryEvents.findIndex(e => e.id === eventId);
+          if (discoveryIndex !== -1) {
+            state.discoveryEvents[discoveryIndex].currentParticipants -= 1;
+          }
+          // Rollback participating events
+          const participatingIndex = state.myParticipatingEvents.findIndex(e => e.id === eventId);
+          if (participatingIndex !== -1) {
+            state.myParticipatingEvents[participatingIndex].currentParticipants -= 1;
           }
         });
         return {
@@ -468,7 +501,26 @@ export const useEventsStore = create<EventsState>()(
             state.currentEvent.currentParticipants - 1
           );
         }
+        // Also update in discovery events
+        const discoveryIndex = state.discoveryEvents.findIndex(e => e.id === eventId);
+        if (discoveryIndex !== -1) {
+          state.discoveryEvents[discoveryIndex].currentParticipants = Math.max(
+            0,
+            state.discoveryEvents[discoveryIndex].currentParticipants - 1
+          );
+        }
+        // And in my participating events
+        const participatingIndex = state.myParticipatingEvents.findIndex(e => e.id === eventId);
+        if (participatingIndex !== -1) {
+          state.myParticipatingEvents[participatingIndex].currentParticipants = Math.max(
+            0,
+            state.myParticipatingEvents[participatingIndex].currentParticipants - 1
+          );
+        }
       });
+
+      // Invalidate cache for this event
+      get().eventsCache.delete(eventId);
 
       try {
         const { error } = await leaveEvent(eventId);
@@ -479,6 +531,16 @@ export const useEventsStore = create<EventsState>()(
             state.isParticipating = true;
             if (state.currentEvent?.id === eventId) {
               state.currentEvent.currentParticipants += 1;
+            }
+            // Rollback discovery events
+            const discoveryIndex = state.discoveryEvents.findIndex(e => e.id === eventId);
+            if (discoveryIndex !== -1) {
+              state.discoveryEvents[discoveryIndex].currentParticipants += 1;
+            }
+            // Rollback participating events
+            const participatingIndex = state.myParticipatingEvents.findIndex(e => e.id === eventId);
+            if (participatingIndex !== -1) {
+              state.myParticipatingEvents[participatingIndex].currentParticipants += 1;
             }
           });
           return { error: error.message };
@@ -493,6 +555,16 @@ export const useEventsStore = create<EventsState>()(
           state.isParticipating = true;
           if (state.currentEvent?.id === eventId) {
             state.currentEvent.currentParticipants += 1;
+          }
+          // Rollback discovery events
+          const discoveryIndex = state.discoveryEvents.findIndex(e => e.id === eventId);
+          if (discoveryIndex !== -1) {
+            state.discoveryEvents[discoveryIndex].currentParticipants += 1;
+          }
+          // Rollback participating events
+          const participatingIndex = state.myParticipatingEvents.findIndex(e => e.id === eventId);
+          if (participatingIndex !== -1) {
+            state.myParticipatingEvents[participatingIndex].currentParticipants += 1;
           }
         });
         return {

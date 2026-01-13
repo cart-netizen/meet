@@ -18,7 +18,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar, Badge, Button } from '@/components/ui';
 import { THEME_COLORS } from '@/constants';
 import { selectProfile, useAuthStore } from '@/stores';
-import { getEventById, getEventParticipants } from '@/services/supabase/events.service';
+import {
+  getEventById,
+  getEventParticipants,
+  markParticipantAttended,
+  markParticipantNoShow
+} from '@/services/supabase/events.service';
 import type { Event, EventParticipant } from '@/types';
 
 // ============================================================================
@@ -35,6 +40,47 @@ export default function ParticipantsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const isOrganizer = event?.organizerId === profile?.id;
+
+  // Check if event has started (can mark attendance)
+  const eventStarted = event ? new Date() >= event.startsAt : false;
+
+  // Mark participant as attended
+  const handleMarkAttended = useCallback(async (userId: string) => {
+    if (!id) return;
+
+    try {
+      const { error } = await markParticipantAttended(id, userId);
+      if (error) {
+        console.error('Failed to mark attended:', error);
+        return;
+      }
+      // Update local state
+      setParticipants(prev =>
+        prev.map(p => p.userId === userId ? { ...p, status: 'attended' as const } : p)
+      );
+    } catch (error) {
+      console.error('Failed to mark attended:', error);
+    }
+  }, [id]);
+
+  // Mark participant as no-show
+  const handleMarkNoShow = useCallback(async (userId: string) => {
+    if (!id) return;
+
+    try {
+      const { error } = await markParticipantNoShow(id, userId);
+      if (error) {
+        console.error('Failed to mark no-show:', error);
+        return;
+      }
+      // Update local state
+      setParticipants(prev =>
+        prev.map(p => p.userId === userId ? { ...p, status: 'no_show' as const } : p)
+      );
+    } catch (error) {
+      console.error('Failed to mark no-show:', error);
+    }
+  }, [id]);
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -81,53 +127,88 @@ export default function ParticipantsScreen() {
 
   // Render participant item
   const renderParticipant = useCallback(
-    ({ item }: { item: EventParticipant }) => (
-      <Pressable
-        style={styles.participantItem}
-        onPress={() => handleUserPress(item.userId)}
-      >
-        <Avatar
-          source={item.user?.avatarUrl ? { uri: item.user.avatarUrl } : null}
-          name={item.user?.displayName}
-          size="lg"
-        />
-        <View style={styles.participantInfo}>
-          <Text style={styles.participantName}>
-            {item.user?.displayName ?? 'Участник'}
-          </Text>
-          <View style={styles.participantMeta}>
-            {item.user?.rating && (
-              <View style={styles.ratingContainer}>
-                <Text style={styles.ratingStar}>★</Text>
-                <Text style={styles.ratingText}>
-                  {item.user.rating.toFixed(1)}
-                </Text>
-              </View>
-            )}
-            {item.status === 'pending' && (
-              <Badge variant="warning" size="sm">
-                Ожидает
-              </Badge>
-            )}
-            {item.status === 'approved' && (
-              <Badge variant="success" size="sm">
-                Подтверждён
-              </Badge>
-            )}
-          </View>
-        </View>
-        {isOrganizer && item.userId !== profile?.id && (
+    ({ item }: { item: EventParticipant }) => {
+      const canMarkAttendance = isOrganizer && eventStarted && item.userId !== profile?.id
+        && (item.status === 'approved' || item.status === 'pending');
+
+      return (
+        <View style={styles.participantItemContainer}>
           <Pressable
-            style={styles.chatButton}
-            onPress={() => handleStartChat(item.userId)}
+            style={styles.participantItem}
+            onPress={() => handleUserPress(item.userId)}
           >
-            <Text style={styles.chatIcon}>💬</Text>
+            <Avatar
+              source={item.user?.avatarUrl ? { uri: item.user.avatarUrl } : null}
+              name={item.user?.displayName}
+              size="lg"
+            />
+            <View style={styles.participantInfo}>
+              <Text style={styles.participantName}>
+                {item.user?.displayName ?? 'Участник'}
+              </Text>
+              <View style={styles.participantMeta}>
+                {item.user?.rating && (
+                  <View style={styles.ratingContainer}>
+                    <Text style={styles.ratingStar}>★</Text>
+                    <Text style={styles.ratingText}>
+                      {item.user.rating.toFixed(1)}
+                    </Text>
+                  </View>
+                )}
+                {item.status === 'pending' && (
+                  <Badge variant="warning" size="sm">
+                    Ожидает
+                  </Badge>
+                )}
+                {item.status === 'approved' && (
+                  <Badge variant="success" size="sm">
+                    Подтверждён
+                  </Badge>
+                )}
+                {item.status === 'attended' && (
+                  <Badge variant="success" size="sm">
+                    ✓ Посетил
+                  </Badge>
+                )}
+                {item.status === 'no_show' && (
+                  <Badge variant="danger" size="sm">
+                    ✗ Не пришёл
+                  </Badge>
+                )}
+              </View>
+            </View>
+            {isOrganizer && item.userId !== profile?.id && (
+              <Pressable
+                style={styles.chatButton}
+                onPress={() => handleStartChat(item.userId)}
+              >
+                <Text style={styles.chatIcon}>💬</Text>
+              </Pressable>
+            )}
+            <Text style={styles.arrowIcon}>›</Text>
           </Pressable>
-        )}
-        <Text style={styles.arrowIcon}>›</Text>
-      </Pressable>
-    ),
-    [handleUserPress, handleStartChat, isOrganizer, profile?.id]
+
+          {/* Attendance buttons for organizer after event started */}
+          {canMarkAttendance && (
+            <View style={styles.attendanceButtons}>
+              <Pressable
+                style={styles.attendedButton}
+                onPress={() => handleMarkAttended(item.userId)}
+              >
+                <Text style={styles.attendedButtonText}>✓ Посетил</Text>
+              </Pressable>
+              <Pressable
+                style={styles.noShowButton}
+                onPress={() => handleMarkNoShow(item.userId)}
+              >
+                <Text style={styles.noShowButtonText}>✗ Не пришёл</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      );
+    },
+    [handleUserPress, handleStartChat, handleMarkAttended, handleMarkNoShow, isOrganizer, eventStarted, profile?.id]
   );
 
   if (isLoading) {
@@ -309,5 +390,42 @@ const styles = StyleSheet.create({
     color: THEME_COLORS.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  participantItemContainer: {
+    backgroundColor: THEME_COLORS.surface,
+  },
+  attendanceButtons: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  attendedButton: {
+    flex: 1,
+    backgroundColor: `${THEME_COLORS.success}15`,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: THEME_COLORS.success,
+  },
+  attendedButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME_COLORS.success,
+  },
+  noShowButton: {
+    flex: 1,
+    backgroundColor: `${THEME_COLORS.error}15`,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: THEME_COLORS.error,
+  },
+  noShowButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME_COLORS.error,
   },
 });
