@@ -1,6 +1,6 @@
 /**
  * Edit Interests Screen
- * Allows user to select their interests
+ * Allows user to select their interests with subcategories
  */
 
 import { useCallback, useState } from 'react';
@@ -16,8 +16,8 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui';
-import { THEME_COLORS } from '@/constants';
-import { selectProfile, useAuthStore, useCategoriesStore } from '@/stores';
+import { PROFILE_CONFIG, THEME_COLORS } from '@/constants';
+import { selectCategories, selectProfile, useAuthStore, useCategoriesStore } from '@/stores';
 import { updateInterests } from '@/services/supabase/profiles.service';
 
 // ============================================================================
@@ -27,24 +27,24 @@ import { updateInterests } from '@/services/supabase/profiles.service';
 export default function InterestsScreen() {
   const profile = useAuthStore(selectProfile);
   const refreshProfile = useAuthStore((state) => state.refreshProfile);
-  const categories = useCategoriesStore((state) => state.categories);
+  const categories = useCategoriesStore(selectCategories);
 
   const [selectedInterests, setSelectedInterests] = useState<string[]>(
     profile?.interests ?? []
   );
   const [isSaving, setIsSaving] = useState(false);
 
-  // Toggle interest selection
-  const handleToggleInterest = useCallback((interest: string) => {
+  // Toggle interest selection (by ID)
+  const handleToggleInterest = useCallback((id: string) => {
     setSelectedInterests((prev) => {
-      if (prev.includes(interest)) {
-        return prev.filter((i) => i !== interest);
+      if (prev.includes(id)) {
+        return prev.filter((i) => i !== id);
       }
-      if (prev.length >= 10) {
-        Alert.alert('Максимум', 'Можно выбрать не более 10 интересов');
+      if (prev.length >= PROFILE_CONFIG.maxInterests) {
+        Alert.alert('Максимум', `Можно выбрать не более ${PROFILE_CONFIG.maxInterests} интересов`);
         return prev;
       }
-      return [...prev, interest];
+      return [...prev, id];
     });
   }, []);
 
@@ -71,14 +71,6 @@ export default function InterestsScreen() {
     }
   }, [selectedInterests, refreshProfile]);
 
-  // Create list of interests from categories
-  const allInterests = categories.map((cat) => ({
-    id: cat.id,
-    name: cat.name,
-    icon: cat.icon,
-    color: cat.color,
-  }));
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -92,49 +84,83 @@ export default function InterestsScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.description}>
-          Выберите до 10 интересов, чтобы мы могли рекомендовать вам подходящие
+          Выберите до {PROFILE_CONFIG.maxInterests} интересов, чтобы мы могли рекомендовать вам подходящие
           встречи
         </Text>
 
-        <View style={styles.interestsList}>
-          {allInterests.map((interest) => {
-            const isSelected = selectedInterests.includes(interest.name);
-            return (
+        {/* Categories with subcategories */}
+        {categories.map((category) => {
+          const isSelected = selectedInterests.includes(category.id);
+
+          return (
+            <View key={category.id} style={styles.categorySection}>
+              {/* Parent Category */}
               <Pressable
-                key={interest.id}
+                onPress={() => handleToggleInterest(category.id)}
                 style={[
-                  styles.interestItem,
-                  isSelected && styles.interestItemSelected,
-                  isSelected && { borderColor: interest.color },
+                  styles.categoryCard,
+                  isSelected && styles.categoryCardSelected,
+                  { borderColor: isSelected ? category.color : THEME_COLORS.border },
                 ]}
-                onPress={() => handleToggleInterest(interest.name)}
               >
-                <Text style={styles.interestIcon}>{interest.icon}</Text>
+                <Text style={styles.categoryIcon}>{category.icon}</Text>
                 <Text
                   style={[
-                    styles.interestName,
-                    isSelected && { color: interest.color },
+                    styles.categoryName,
+                    isSelected && { color: category.color },
                   ]}
                 >
-                  {interest.name}
+                  {category.name}
                 </Text>
                 {isSelected && (
                   <View
                     style={[
                       styles.checkmark,
-                      { backgroundColor: interest.color },
+                      { backgroundColor: category.color },
                     ]}
                   >
                     <Text style={styles.checkmarkText}>✓</Text>
                   </View>
                 )}
               </Pressable>
-            );
-          })}
-        </View>
+
+              {/* Subcategories (shown if parent selected) */}
+              {isSelected && category.subcategories && category.subcategories.length > 0 && (
+                <View style={styles.subcategoriesContainer}>
+                  {category.subcategories.map((sub) => {
+                    const isSubSelected = selectedInterests.includes(sub.id);
+
+                    return (
+                      <Pressable
+                        key={sub.id}
+                        onPress={() => handleToggleInterest(sub.id)}
+                        style={[
+                          styles.subcategoryChip,
+                          isSubSelected && {
+                            backgroundColor: `${category.color}20`,
+                            borderColor: category.color,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.subcategoryText,
+                            isSubSelected && { color: category.color },
+                          ]}
+                        >
+                          {sub.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          );
+        })}
 
         <Text style={styles.selectedCount}>
-          Выбрано: {selectedInterests.length}/10
+          Выбрано: {selectedInterests.length}/{PROFILE_CONFIG.maxInterests}
         </Text>
 
         <Button
@@ -190,6 +216,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+    paddingBottom: 40,
   },
   description: {
     fontSize: 15,
@@ -197,45 +224,62 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 24,
   },
-  interestsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  categorySection: {
+    marginBottom: 16,
   },
-  interestItem: {
+  categoryCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: THEME_COLORS.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: THEME_COLORS.border,
-    gap: 6,
+    padding: 16,
   },
-  interestItemSelected: {
-    backgroundColor: THEME_COLORS.background,
+  categoryCardSelected: {
+    backgroundColor: '#F9FAFB',
   },
-  interestIcon: {
+  categoryIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  categoryName: {
+    flex: 1,
     fontSize: 18,
-  },
-  interestName: {
-    fontSize: 15,
+    fontWeight: '600',
     color: THEME_COLORS.text,
-    fontWeight: '500',
   },
   checkmark: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 4,
   },
   checkmarkText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
+  },
+  subcategoriesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+    marginLeft: 16,
+    gap: 8,
+  },
+  subcategoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: THEME_COLORS.surface,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.border,
+  },
+  subcategoryText: {
+    fontSize: 14,
+    color: THEME_COLORS.textSecondary,
+    fontWeight: '500',
   },
   selectedCount: {
     textAlign: 'center',

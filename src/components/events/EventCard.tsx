@@ -3,9 +3,9 @@
  * Displays event information in a card format
  */
 
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { format, isToday, isTomorrow } from 'date-fns';
+import { format, isPast, isToday, isTomorrow } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 import { Avatar, Badge } from '@/components/ui';
@@ -21,6 +21,25 @@ interface EventCardProps {
   event: Event;
   userLocation?: GeoPoint;
   onPress?: () => void;
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+/**
+ * Check if event is inactive (past, cancelled, or completed)
+ */
+function isEventInactive(event: Event): boolean {
+  // Check status
+  if (event.status === 'cancelled' || event.status === 'completed') {
+    return true;
+  }
+  // Check if event end time has passed
+  if (isPast(event.endsAt)) {
+    return true;
+  }
+  return false;
 }
 
 // ============================================================================
@@ -45,8 +64,14 @@ export const EventCard = memo(function EventCard({
 
   const formattedDate = formatEventDate(event.startsAt);
 
+  // Check if event is inactive (past, cancelled, or completed)
+  const isInactive = useMemo(() => isEventInactive(event), [event]);
+
   return (
-    <Pressable style={styles.container} onPress={onPress}>
+    <Pressable
+      style={[styles.container, isInactive && styles.containerInactive]}
+      onPress={onPress}
+    >
       {/* Category and Date/Price */}
       <View style={styles.topRow}>
         {category && (
@@ -183,6 +208,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  containerInactive: {
+    opacity: 0.5,
   },
   topRow: {
     flexDirection: 'row',
