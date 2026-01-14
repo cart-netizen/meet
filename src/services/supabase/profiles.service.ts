@@ -390,6 +390,7 @@ function uploadToStorageXHR(
 ): Promise<{ error: Error | null }> {
   return new Promise((resolve) => {
     const storageUrl = ENV.supabase.url;
+    const anonKey = ENV.supabase.anonKey;
     const uploadUrl = `${storageUrl}/storage/v1/object/${bucket}/${path}`;
 
     const xhr = new XMLHttpRequest();
@@ -419,6 +420,7 @@ function uploadToStorageXHR(
 
     xhr.open('POST', uploadUrl, true);
     xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+    xhr.setRequestHeader('apikey', anonKey);
     xhr.setRequestHeader('x-upsert', 'true');
     xhr.timeout = 60000; // 60 second timeout
 
