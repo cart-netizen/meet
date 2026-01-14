@@ -146,6 +146,9 @@ export async function updateEvent(
   if (input.cancelledReason !== undefined) {
     updateData.cancelled_reason = input.cancelledReason;
   }
+  if (input.photos !== undefined) {
+    updateData.photos = input.photos;
+  }
 
   const { data, error } = await supabase
     .from('events')

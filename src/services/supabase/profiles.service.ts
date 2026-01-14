@@ -468,15 +468,18 @@ export async function uploadAvatar(
       return { url: null, error: uploadError };
     }
 
-    // Get public URL
+    // Get public URL with cache-busting timestamp
     const { data: { publicUrl } } = supabase.storage
       .from('avatars')
       .getPublicUrl(filePath);
 
-    // Update profile with new avatar URL
-    await updateProfile({ avatarUrl: publicUrl });
+    // Add timestamp to bust image cache
+    const urlWithTimestamp = `${publicUrl}?t=${Date.now()}`;
 
-    return { url: publicUrl, error: null };
+    // Update profile with new avatar URL
+    await updateProfile({ avatarUrl: urlWithTimestamp });
+
+    return { url: urlWithTimestamp, error: null };
   } catch (error) {
     console.error('Upload avatar error:', error);
     const message = error instanceof Error ? error.message : 'Ошибка загрузки фото';
@@ -499,7 +502,7 @@ export async function uploadProfilePhoto(
     }
 
     // Get current photos
-    const { profile } = await getProfile(user.id);
+    const { profile } = await getProfileById(user.id);
     const currentPhotos = profile?.photos ?? [];
 
     if (currentPhotos.length >= 5) {
@@ -556,7 +559,7 @@ export async function deleteProfilePhoto(
     }
 
     // Get current photos
-    const { profile } = await getProfile(user.id);
+    const { profile } = await getProfileById(user.id);
     const currentPhotos = profile?.photos ?? [];
 
     // Remove photo from list

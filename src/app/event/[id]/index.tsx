@@ -6,6 +6,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Dimensions,
+  Image,
   Pressable,
   ScrollView,
   Share,
@@ -18,7 +20,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
-import { Avatar, Badge, Button } from '@/components/ui';
+import { Avatar, Badge, Button, ImageViewer } from '@/components/ui';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { EventMap } from '@/components/map';
 import { THEME_COLORS } from '@/constants';
 import { selectProfile, useAuthStore, useCategoriesStore, useEventsStore } from '@/stores';
@@ -42,6 +46,11 @@ export default function EventDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
+  const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
+
+  // Get event photos
+  const eventPhotos = event?.photos ?? [];
 
   // Check participation status
   const myParticipation = participants.find((p) => p.userId === profile?.id);
@@ -265,14 +274,6 @@ export default function EventDetailScreen() {
           <Pressable style={styles.headerButton} onPress={handleShare}>
             <Text style={styles.headerIcon}>↗</Text>
           </Pressable>
-          {isOrganizer && (
-            <Pressable
-              style={styles.headerButton}
-              onPress={() => router.push(`/event/${event.id}/edit`)}
-            >
-              <Text style={styles.headerIcon}>✏️</Text>
-            </Pressable>
-          )}
         </View>
       </View>
 
@@ -387,6 +388,34 @@ export default function EventDetailScreen() {
           <Text style={styles.sectionTitle}>Описание</Text>
           <Text style={styles.description}>{event.description}</Text>
         </View>
+
+        {/* Photos */}
+        {eventPhotos.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Фото</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.photosContainer}
+            >
+              {eventPhotos.map((photo, index) => (
+                <Pressable
+                  key={index}
+                  onPress={() => {
+                    setPhotoViewerIndex(index);
+                    setPhotoViewerVisible(true);
+                  }}
+                >
+                  <Image
+                    source={{ uri: photo }}
+                    style={styles.eventPhoto}
+                    resizeMode="cover"
+                  />
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Organizer */}
         <View style={styles.section}>
@@ -507,6 +536,14 @@ export default function EventDetailScreen() {
           )}
         </View>
       )}
+
+      {/* Photo Viewer Modal */}
+      <ImageViewer
+        images={eventPhotos}
+        initialIndex={photoViewerIndex}
+        visible={photoViewerVisible}
+        onClose={() => setPhotoViewerVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -739,6 +776,16 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: THEME_COLORS.primary,
+  },
+  photosContainer: {
+    gap: 12,
+    paddingVertical: 8,
+  },
+  eventPhoto: {
+    width: 160,
+    height: 120,
+    borderRadius: 12,
+    backgroundColor: THEME_COLORS.surface,
   },
   bottomBar: {
     position: 'absolute',
