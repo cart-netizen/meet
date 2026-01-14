@@ -378,46 +378,80 @@ export async function getProfileStats(userId: string): Promise<{
 // ============================================================================
 
 /**
+ * Convert file URI to Blob using XMLHttpRequest (more reliable in React Native)
+ */
+function fileUriToBlob(uri: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.onload = function () {
+      resolve(xhr.response);
+    };
+    xhr.onerror = function () {
+      reject(new Error('Не удалось прочитать файл'));
+    };
+    xhr.ontimeout = function () {
+      reject(new Error('Превышено время ожидания'));
+    };
+    xhr.responseType = 'blob';
+    xhr.timeout = 30000; // 30 second timeout
+    xhr.open('GET', uri, true);
+    xhr.send(null);
+  });
+}
+
+/**
  * Upload avatar image
  */
 export async function uploadAvatar(
   file: { uri: string; type: string; name: string }
 ): Promise<{ url: string | null; error: Error | null }> {
-  const { data: { user } } = await supabase.auth.getUser();
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    return { url: null, error: new Error('Not authenticated') };
+    if (!user) {
+      return { url: null, error: new Error('Not authenticated') };
+    }
+
+    // Generate unique file path
+    const fileExt = file.name.split('.').pop() ?? 'jpg';
+    const filePath = `${user.id}/avatar.${fileExt}`;
+
+    // Read file using XMLHttpRequest (more reliable for local files in React Native)
+    let blob: Blob;
+    try {
+      blob = await fileUriToBlob(file.uri);
+    } catch (readError) {
+      console.error('Failed to read file:', readError);
+      return { url: null, error: new Error('Не удалось прочитать файл') };
+    }
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, blob, {
+        contentType: file.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('Supabase upload error:', uploadError);
+      return { url: null, error: new Error(uploadError.message) };
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    // Update profile with new avatar URL
+    await updateProfile({ avatarUrl: publicUrl });
+
+    return { url: publicUrl, error: null };
+  } catch (error) {
+    console.error('Upload avatar error:', error);
+    const message = error instanceof Error ? error.message : 'Ошибка загрузки фото';
+    return { url: null, error: new Error(message) };
   }
-
-  // Generate unique file path
-  const fileExt = file.name.split('.').pop() ?? 'jpg';
-  const filePath = `${user.id}/avatar.${fileExt}`;
-
-  // Fetch the file from URI and convert to blob
-  const response = await fetch(file.uri);
-  const blob = await response.blob();
-
-  // Upload to Supabase Storage
-  const { error: uploadError } = await supabase.storage
-    .from('avatars')
-    .upload(filePath, blob, {
-      contentType: file.type,
-      upsert: true,
-    });
-
-  if (uploadError) {
-    return { url: null, error: new Error(uploadError.message) };
-  }
-
-  // Get public URL
-  const { data: { publicUrl } } = supabase.storage
-    .from('avatars')
-    .getPublicUrl(filePath);
-
-  // Update profile with new avatar URL
-  await updateProfile({ avatarUrl: publicUrl });
-
-  return { url: publicUrl, error: null };
 }
 
 // ============================================================================
