@@ -273,6 +273,7 @@ function transformProfile(data: Record<string, unknown>): Profile {
     id: data.id as string,
     displayName: data.display_name as string,
     avatarUrl: data.avatar_url as string | null,
+    photos: (data.photos as string[]) ?? [],
     bio: data.bio as string | null,
     birthYear: data.birth_year as number | null,
     city: data.city as string,
