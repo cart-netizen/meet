@@ -6,7 +6,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import {
   Dimensions,
-  FlatList,
   Image,
   Pressable,
   ScrollView,
@@ -19,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
-import { Avatar, Badge, Button } from '@/components/ui';
+import { Avatar, Badge, Button, ImageViewer } from '@/components/ui';
 import { THEME_COLORS } from '@/constants';
 import { selectProfile, useAuthStore, useCategoriesStore } from '@/stores';
 import { getProfileById, getProfileReviews, getProfileStats } from '@/services/supabase/profiles.service';
@@ -58,6 +57,7 @@ export default function UserProfileScreen() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const [viewerVisible, setViewerVisible] = useState(false);
 
   const photoScrollRef = useRef<ScrollView>(null);
 
@@ -97,6 +97,11 @@ export default function UserProfileScreen() {
   const handlePhotoScroll = useCallback((event: { nativeEvent: { contentOffset: { x: number } } }) => {
     const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
     setActivePhotoIndex(index);
+  }, []);
+
+  // Open image viewer
+  const handleOpenViewer = useCallback(() => {
+    setViewerVisible(true);
   }, []);
 
   // Start chat with user
@@ -145,8 +150,11 @@ export default function UserProfileScreen() {
     );
   }
 
-  // For now, we only have one avatar URL. In the future, we can add multiple photos.
-  const photos = profile.avatarUrl ? [profile.avatarUrl] : [];
+  // Combine avatar and additional photos
+  const photos = [
+    ...(profile.avatarUrl ? [profile.avatarUrl] : []),
+    ...(profile.photos ?? []),
+  ];
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -167,7 +175,7 @@ export default function UserProfileScreen() {
         </View>
 
         {/* Photo Carousel */}
-        <View style={styles.photoContainer}>
+        <Pressable style={styles.photoContainer} onPress={handleOpenViewer}>
           {photos.length > 0 ? (
             <>
               <ScrollView
@@ -210,7 +218,7 @@ export default function UserProfileScreen() {
               />
             </View>
           )}
-        </View>
+        </Pressable>
 
         {/* Profile Info */}
         <View style={styles.profileInfo}>
@@ -300,6 +308,14 @@ export default function UserProfileScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Image Viewer Modal */}
+      <ImageViewer
+        images={photos}
+        initialIndex={activePhotoIndex}
+        visible={viewerVisible}
+        onClose={() => setViewerVisible(false)}
+      />
     </SafeAreaView>
   );
 }

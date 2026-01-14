@@ -15,7 +15,10 @@ import type {
   PaginationParams,
 } from '@/types';
 
+import { ENV } from '@/config/env';
+
 import { deduplicateRequest, supabase, withRetry } from './client';
+import { uploadToStorageXHR } from './profiles.service';
 
 // ============================================================================
 // Types
@@ -993,6 +996,82 @@ const EVENT_SELECT_QUERY = `
 `;
 
 // ============================================================================
+// Event Photo Upload
+// ============================================================================
+
+/**
+ * Upload event photo
+ */
+export async function uploadEventPhoto(
+  eventId: string,
+  file: { uri: string; type: string; name: string }
+): Promise<{ url: string | null; error: Error | null }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!user || !session) {
+      return { url: null, error: new Error('Not authenticated') };
+    }
+
+    // Generate unique file path with timestamp
+    const fileExt = file.name.split('.').pop() ?? 'jpg';
+    const timestamp = Date.now();
+    const filePath = `${eventId}/photo_${timestamp}.${fileExt}`;
+
+    // Upload using XMLHttpRequest
+    const { error: uploadError } = await uploadToStorageXHR(
+      'events',
+      filePath,
+      file.uri,
+      file.type,
+      session.access_token
+    );
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError);
+      return { url: null, error: uploadError };
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('events')
+      .getPublicUrl(filePath);
+
+    return { url: publicUrl, error: null };
+  } catch (error) {
+    console.error('Upload event photo error:', error);
+    const message = error instanceof Error ? error.message : 'Ошибка загрузки фото';
+    return { url: null, error: new Error(message) };
+  }
+}
+
+/**
+ * Update event photos array
+ */
+export async function updateEventPhotos(
+  eventId: string,
+  photos: string[]
+): Promise<{ error: Error | null }> {
+  try {
+    const { error } = await supabase
+      .from('events')
+      .update({ photos })
+      .eq('id', eventId);
+
+    if (error) {
+      return { error: new Error(error.message) };
+    }
+
+    return { error: null };
+  } catch (error) {
+    console.error('Update event photos error:', error);
+    const message = error instanceof Error ? error.message : 'Ошибка обновления фото';
+    return { error: new Error(message) };
+  }
+}
+
+// ============================================================================
 // Transform Functions
 // ============================================================================
 
@@ -1028,6 +1107,7 @@ function transformEvent(data: Record<string, unknown>): Event {
     categoryId: data.category_id as string,
     tags: (data.tags as string[]) ?? [],
     coverImageUrl: data.cover_image_url as string | null,
+    photos: (data.photos as string[]) ?? [],
     startsAt: validStartsAt,
     endsAt,
     durationMinutes,
@@ -1084,6 +1164,7 @@ function transformEventFromRpc(data: Record<string, unknown>): Event {
     categoryId: data.category_id as string,
     tags: [],
     coverImageUrl: null,
+    photos: [],
     startsAt: validStartsAt,
     endsAt,
     durationMinutes,

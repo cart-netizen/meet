@@ -381,7 +381,7 @@ export async function getProfileStats(userId: string): Promise<{
 /**
  * Upload file to Supabase Storage using XMLHttpRequest (bypasses fetch issues in React Native)
  */
-function uploadToStorageXHR(
+export function uploadToStorageXHR(
   bucket: string,
   path: string,
   fileUri: string,
@@ -484,6 +484,93 @@ export async function uploadAvatar(
   }
 }
 
+/**
+ * Upload additional profile photo (max 5 photos)
+ */
+export async function uploadProfilePhoto(
+  file: { uri: string; type: string; name: string }
+): Promise<{ url: string | null; error: Error | null }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!user || !session) {
+      return { url: null, error: new Error('Not authenticated') };
+    }
+
+    // Get current photos
+    const { profile } = await getProfile(user.id);
+    const currentPhotos = profile?.photos ?? [];
+
+    if (currentPhotos.length >= 5) {
+      return { url: null, error: new Error('Максимум 5 фото') };
+    }
+
+    // Generate unique file path with timestamp
+    const fileExt = file.name.split('.').pop() ?? 'jpg';
+    const timestamp = Date.now();
+    const filePath = `${user.id}/photo_${timestamp}.${fileExt}`;
+
+    // Upload using XMLHttpRequest
+    const { error: uploadError } = await uploadToStorageXHR(
+      'avatars',
+      filePath,
+      file.uri,
+      file.type,
+      session.access_token
+    );
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError);
+      return { url: null, error: uploadError };
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    // Update profile with new photo
+    const updatedPhotos = [...currentPhotos, publicUrl];
+    await updateProfile({ photos: updatedPhotos });
+
+    return { url: publicUrl, error: null };
+  } catch (error) {
+    console.error('Upload photo error:', error);
+    const message = error instanceof Error ? error.message : 'Ошибка загрузки фото';
+    return { url: null, error: new Error(message) };
+  }
+}
+
+/**
+ * Delete profile photo
+ */
+export async function deleteProfilePhoto(
+  photoUrl: string
+): Promise<{ error: Error | null }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { error: new Error('Not authenticated') };
+    }
+
+    // Get current photos
+    const { profile } = await getProfile(user.id);
+    const currentPhotos = profile?.photos ?? [];
+
+    // Remove photo from list
+    const updatedPhotos = currentPhotos.filter(url => url !== photoUrl);
+    await updateProfile({ photos: updatedPhotos });
+
+    return { error: null };
+  } catch (error) {
+    console.error('Delete photo error:', error);
+    const message = error instanceof Error ? error.message : 'Ошибка удаления фото';
+    return { error: new Error(message) };
+  }
+}
+
 // ============================================================================
 // Transform Functions
 // ============================================================================
@@ -493,6 +580,7 @@ function transformProfile(data: Record<string, unknown>): Profile {
     id: data.id as string,
     displayName: data.display_name as string,
     avatarUrl: data.avatar_url as string | null,
+    photos: (data.photos as string[]) ?? [],
     bio: data.bio as string | null,
     birthYear: data.birth_year as number | null,
     city: data.city as string,

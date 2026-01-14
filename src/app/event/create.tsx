@@ -6,6 +6,7 @@
 import { useCallback, useState } from 'react';
 import {
   Alert,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -21,8 +22,9 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { format, addHours } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import * as ImagePicker from 'expo-image-picker';
 
-import { Button, EmailVerificationBanner, Input } from '@/components/ui';
+import { Button, EmailVerificationBanner, ImageViewer, Input } from '@/components/ui';
 import { LocationPicker } from '@/components/map';
 import { THEME_COLORS } from '@/constants';
 import {
@@ -34,7 +36,7 @@ import {
   useCategoriesStore,
   useLocationStore,
 } from '@/stores';
-import { createEvent } from '@/services/supabase/events.service';
+import { createEvent, uploadEventPhoto, updateEventPhotos } from '@/services/supabase/events.service';
 import { resendVerificationEmail } from '@/services/supabase/auth.service';
 import type { EventCreateInput, GeoPoint } from '@/types';
 
@@ -65,6 +67,14 @@ interface FormData {
   requiresApproval: boolean;
 }
 
+interface LocalPhoto {
+  uri: string;
+  type: string;
+  name: string;
+}
+
+const MAX_EVENT_PHOTOS = 5;
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -82,6 +92,10 @@ export default function CreateEventScreen() {
   const [currentStep, setCurrentStep] = useState<WizardStep>('category');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState<'startsAt' | 'endsAt' | null>(null);
+  const [localPhotos, setLocalPhotos] = useState<LocalPhoto[]>([]);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
 
   const [formData, setFormData] = useState<FormData>({
     categoryId: '',
@@ -212,6 +226,49 @@ export default function CreateEventScreen() {
     }
   }, [validateStep, goNext]);
 
+  // Pick event photo
+  const handlePickPhoto = useCallback(async () => {
+    if (localPhotos.length >= MAX_EVENT_PHOTOS) {
+      Alert.alert('Ошибка', `Максимум ${MAX_EVENT_PHOTOS} фото`);
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        setLocalPhotos(prev => [
+          ...prev,
+          {
+            uri: asset.uri,
+            type: asset.mimeType ?? 'image/jpeg',
+            name: `photo.${asset.uri.split('.').pop() ?? 'jpg'}`,
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error('Failed to pick photo:', error);
+      Alert.alert('Ошибка', 'Не удалось выбрать фото');
+    }
+  }, [localPhotos.length]);
+
+  // Remove local photo
+  const handleRemovePhoto = useCallback((index: number) => {
+    setLocalPhotos(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // Open image viewer
+  const handleOpenViewer = useCallback((index: number) => {
+    setViewerIndex(index);
+    setViewerVisible(true);
+  }, []);
+
   // Submit form
   const handleSubmit = useCallback(async () => {
     if (!validateStep()) return;
@@ -247,6 +304,20 @@ export default function CreateEventScreen() {
         return;
       }
 
+      // Upload photos if any
+      if (localPhotos.length > 0) {
+        const uploadedUrls: string[] = [];
+        for (const photo of localPhotos) {
+          const uploadResult = await uploadEventPhoto(result.event.id, photo);
+          if (uploadResult.url) {
+            uploadedUrls.push(uploadResult.url);
+          }
+        }
+        if (uploadedUrls.length > 0) {
+          await updateEventPhotos(result.event.id, uploadedUrls);
+        }
+      }
+
       Alert.alert('Готово!', 'Встреча успешно создана', [
         {
           text: 'Посмотреть',
@@ -259,7 +330,7 @@ export default function CreateEventScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, validateStep, profile]);
+  }, [formData, validateStep, profile, localPhotos]);
 
   // Render email verification required
   if (!isEmailVerified) {
@@ -518,6 +589,51 @@ export default function CreateEventScreen() {
           <ScrollView contentContainerStyle={styles.stepContent}>
             <Text style={styles.stepTitle}>Настройки</Text>
 
+            {/* Photos Section */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>
+                Фото встречи ({localPhotos.length}/{MAX_EVENT_PHOTOS})
+              </Text>
+              <Text style={styles.labelHint}>
+                Добавьте фото места встречи или прошлых мероприятий
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.photosContainer}
+              >
+                {localPhotos.map((photo, index) => (
+                  <Pressable
+                    key={index}
+                    style={styles.photoItem}
+                    onPress={() => handleOpenViewer(index)}
+                    onLongPress={() => handleRemovePhoto(index)}
+                  >
+                    <Image
+                      source={{ uri: photo.uri }}
+                      style={styles.photoImage}
+                      resizeMode="cover"
+                    />
+                    <Pressable
+                      style={styles.photoRemoveButton}
+                      onPress={() => handleRemovePhoto(index)}
+                    >
+                      <Text style={styles.photoRemoveText}>×</Text>
+                    </Pressable>
+                  </Pressable>
+                ))}
+                {localPhotos.length < MAX_EVENT_PHOTOS && (
+                  <Pressable
+                    style={styles.addPhotoButton}
+                    onPress={handlePickPhoto}
+                  >
+                    <Text style={styles.addPhotoIcon}>+</Text>
+                    <Text style={styles.addPhotoText}>Добавить</Text>
+                  </Pressable>
+                )}
+              </ScrollView>
+            </View>
+
             <View style={styles.formGroup}>
               <Text style={styles.label}>Стоимость участия (₽)</Text>
               <Input
@@ -629,6 +745,14 @@ export default function CreateEventScreen() {
           </Button>
         )}
       </View>
+
+      {/* Image Viewer Modal */}
+      <ImageViewer
+        images={localPhotos.map(p => p.uri)}
+        initialIndex={viewerIndex}
+        visible={viewerVisible}
+        onClose={() => setViewerVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -901,6 +1025,64 @@ const styles = StyleSheet.create({
   },
   toggleThumbActive: {
     // Thumb moves to right when active via parent alignItems
+  },
+  labelHint: {
+    fontSize: 13,
+    color: THEME_COLORS.textMuted,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  photosContainer: {
+    gap: 12,
+    paddingVertical: 8,
+  },
+  photoItem: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoRemoveButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoRemoveText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  addPhotoButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    backgroundColor: THEME_COLORS.surface,
+    borderWidth: 2,
+    borderColor: THEME_COLORS.border,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  addPhotoIcon: {
+    fontSize: 28,
+    color: THEME_COLORS.textMuted,
+  },
+  addPhotoText: {
+    fontSize: 12,
+    color: THEME_COLORS.textMuted,
   },
   footer: {
     position: 'absolute',

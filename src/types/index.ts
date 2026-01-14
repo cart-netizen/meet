@@ -21,6 +21,7 @@ export interface Profile {
   id: string;
   displayName: string;
   avatarUrl: string | null;
+  photos: string[]; // Additional photos (up to 5)
   bio: string | null;
   birthYear: number | null;
   city: string;
@@ -45,6 +46,7 @@ export interface Profile {
 export interface ProfileUpdateInput {
   displayName?: string;
   avatarUrl?: string | null;
+  photos?: string[];
   bio?: string | null;
   birthYear?: number | null;
   city?: string;
@@ -106,6 +108,7 @@ export interface Event {
   categoryId: string;
   tags: string[];
   coverImageUrl: string | null;
+  photos: string[]; // Additional event photos
 
   // Time
   startsAt: Date;
@@ -155,6 +158,7 @@ export interface EventCreateInput {
   categoryId: string;
   tags?: string[];
   coverImageUrl?: string;
+  photos?: string[];
   startsAt: Date;
   durationMinutes?: number;
   location: GeoPoint;
