@@ -4,6 +4,7 @@
  * Optimized for 10M registered users
  */
 
+import { ENV } from '@/config/env';
 import type { GeoPoint, Profile, ProfileUpdateInput, Review } from '@/types';
 
 import { deduplicateRequest, supabase, withRetry } from './client';
@@ -378,24 +379,58 @@ export async function getProfileStats(userId: string): Promise<{
 // ============================================================================
 
 /**
- * Convert file URI to Blob using XMLHttpRequest (more reliable in React Native)
+ * Upload file to Supabase Storage using XMLHttpRequest (bypasses fetch issues in React Native)
  */
-function fileUriToBlob(uri: string): Promise<Blob> {
-  return new Promise((resolve, reject) => {
+function uploadToStorageXHR(
+  bucket: string,
+  path: string,
+  fileUri: string,
+  contentType: string,
+  accessToken: string
+): Promise<{ error: Error | null }> {
+  return new Promise((resolve) => {
+    const storageUrl = ENV.supabase.url;
+    const uploadUrl = `${storageUrl}/storage/v1/object/${bucket}/${path}`;
+
     const xhr = new XMLHttpRequest();
+
     xhr.onload = function () {
-      resolve(xhr.response);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve({ error: null });
+      } else {
+        let errorMessage = 'Ошибка загрузки';
+        try {
+          const response = JSON.parse(xhr.responseText);
+          errorMessage = response.error || response.message || errorMessage;
+        } catch {
+          errorMessage = xhr.statusText || errorMessage;
+        }
+        resolve({ error: new Error(errorMessage) });
+      }
     };
+
     xhr.onerror = function () {
-      reject(new Error('Не удалось прочитать файл'));
+      resolve({ error: new Error('Ошибка сети при загрузке') });
     };
+
     xhr.ontimeout = function () {
-      reject(new Error('Превышено время ожидания'));
+      resolve({ error: new Error('Превышено время ожидания загрузки') });
     };
-    xhr.responseType = 'blob';
-    xhr.timeout = 30000; // 30 second timeout
-    xhr.open('GET', uri, true);
-    xhr.send(null);
+
+    xhr.open('POST', uploadUrl, true);
+    xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+    xhr.setRequestHeader('x-upsert', 'true');
+    xhr.timeout = 60000; // 60 second timeout
+
+    // Create FormData with file
+    const formData = new FormData();
+    formData.append('', {
+      uri: fileUri,
+      type: contentType,
+      name: path.split('/').pop() || 'file',
+    } as unknown as Blob);
+
+    xhr.send(formData);
   });
 }
 
@@ -407,8 +442,9 @@ export async function uploadAvatar(
 ): Promise<{ url: string | null; error: Error | null }> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (!user) {
+    if (!user || !session) {
       return { url: null, error: new Error('Not authenticated') };
     }
 
@@ -416,26 +452,18 @@ export async function uploadAvatar(
     const fileExt = file.name.split('.').pop() ?? 'jpg';
     const filePath = `${user.id}/avatar.${fileExt}`;
 
-    // Read file using XMLHttpRequest (more reliable for local files in React Native)
-    let blob: Blob;
-    try {
-      blob = await fileUriToBlob(file.uri);
-    } catch (readError) {
-      console.error('Failed to read file:', readError);
-      return { url: null, error: new Error('Не удалось прочитать файл') };
-    }
-
-    // Upload to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(filePath, blob, {
-        contentType: file.type,
-        upsert: true,
-      });
+    // Upload using XMLHttpRequest (bypasses React Native fetch issues)
+    const { error: uploadError } = await uploadToStorageXHR(
+      'avatars',
+      filePath,
+      file.uri,
+      file.type,
+      session.access_token
+    );
 
     if (uploadError) {
-      console.error('Supabase upload error:', uploadError);
-      return { url: null, error: new Error(uploadError.message) };
+      console.error('Storage upload error:', uploadError);
+      return { url: null, error: uploadError };
     }
 
     // Get public URL
