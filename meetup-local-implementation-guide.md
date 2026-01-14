@@ -50,8 +50,8 @@ npm start
 Запустите: npm run android
 Рекомендую начать с npm run web - это самый быстрый способ увидеть приложение.
 
-
-
+adb reverse tcp:8081 tcp:8081
+npx expo start --tunnel --clear 
 ## Полное руководство по реализации MVP
 
 ---
