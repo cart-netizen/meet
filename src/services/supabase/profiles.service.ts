@@ -91,6 +91,9 @@ export async function updateProfile(input: ProfileUpdateInput): Promise<ProfileR
   if (input.interests !== undefined) {
     updateData.interests = input.interests;
   }
+  if (input.photos !== undefined) {
+    updateData.photos = input.photos;
+  }
   if (input.subscriptionType !== undefined) {
     updateData.subscription_type = input.subscriptionType;
   }
